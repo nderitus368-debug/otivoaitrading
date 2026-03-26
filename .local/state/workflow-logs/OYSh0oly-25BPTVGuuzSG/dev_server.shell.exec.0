@@ -1,0 +1,55 @@
+
+> bot@0.0.1 start
+> node node_modules/@rsbuild/core/bin/rsbuild.js dev
+
+[1G[0K[1m[38;2;180;250;236mR[39m[38;2;171;246;229ms[39m[38;2;162;241;222mb[39m[38;2;154;236;216mu[39m[38;2;145;232;209mi[39m[38;2;136;227;202ml[39m[38;2;127;222;195md[39m[38;2;127;222;195m [39m[38;2;118;217;188mv[39m[38;2;109;213;181m1[39m[38;2;101;208;175m.[39m[38;2;92;203;168m7[39m[38;2;83;199;161m.[39m[38;2;74;194;154m3[39m[38;2;74;194;154m
+[39m[22m
+[1m[33mwarn   [39m[22m [2m[rsbuild:config][22m The [33m"source.alias"[39m config is deprecated, use [33m"resolve.alias"[39m instead.
+  ➜  [2mLocal:    [22m[36mhttp://localhost:5000/[39m
+  ➜  [2mNetwork:  [22m[36mhttp://172.31.74.2:5000/[39m
+  ➜  [2mpress[22m [1mh + enter[22m [2mto show shortcuts[22m
+
+[1m[36mstart  [39m[22m build started...
+[1m[32mready  [39m[22m built in [1m1.90[22m s
+[1m[36mstart  [39m[22m building [2mcomponents/layout/index.tsx[22m
+[1m[32mready  [39m[22m built in [1m0.79[22m s
+[1m[36mstart  [39m[22m building [2msrc/app/app-root.tsx[22m
+[1m[32mready  [39m[22m built in [1m0.67[22m s
+[1m[36mstart  [39m[22m building [2msrc/app/app-root.tsx[22m
+[1m[32mready  [39m[22m built in [1m0.44[22m s
+[1m[36mstart  [39m[22m building [2msrc/app/app-content.jsx[22m
+[1m[31merror  [39m[22m [36m[browser][39m [31mUncaught (in promise) Error: Missing required parameter client_id.[39m[2m at GoogleDriveStore.initialiseClient (src/stores/google-drive-store.ts:100:0)[22m
+[1m[32mready  [39m[22m built in [1m3.39[22m s
+[1m[31merror  [39m[22m [36m[browser][39m [31mUncaught (in promise) Error: Missing required parameter client_id.[39m[2m at GoogleDriveStore.initialiseClient (src/stores/google-drive-store.ts:100:0)[22m
+[1m[36mstart  [39m[22m build started...
+[1m[32mready  [39m[22m built in [1m0.52[22m s
+[1m[36mstart  [39m[22m build started...
+[1m[32mready  [39m[22m built in [1m0.42[22m s
+[1m[36mstart  [39m[22m building [2msrc/utils/gtm.ts[22m
+[1m[32mready  [39m[22m built in [1m0.50[22m s
+[1m[36mstart  [39m[22m building [2msrc/utils/gtm.ts[22m
+[1m[32mready  [39m[22m built in [1m0.53[22m s
+[1m[36mstart  [39m[22m build started...
+[1m[32mready  [39m[22m built in [1m0.38[22m s
+[1m[36mstart  [39m[22m build started...
+[1m[32mready  [39m[22m built in [1m0.39[22m s
+[1m[36mstart  [39m[22m building [2mscratch/hooks/index.js[22m
+[1m[32mready  [39m[22m built in [1m0.51[22m s
+[1m[36mstart  [39m[22m building [2mscratch/hooks/index.js[22m
+[1m[32mready  [39m[22m built in [1m0.49[22m s
+[1m[36mstart  [39m[22m building [2mscratch/blocks/index.js[22m
+[1m[32mready  [39m[22m built in [1m0.56[22m s
+[1m[36mstart  [39m[22m building [2mscratch/blocks/index.js[22m
+[1m[32mready  [39m[22m built in [1m0.43[22m s
+[1m[36mstart  [39m[22m building [2mblocks/Binary/Trade[22m
+[1m[32mready  [39m[22m built in [1m0.58[22m s
+[1m[36mstart  [39m[22m building [2mblocks/Binary/Trade[22m
+[1m[32mready  [39m[22m built in [1m0.45[22m s
+[1m[36mstart  [39m[22m building [2mblocks/Binary/Trade[22m
+[1m[32mready  [39m[22m built in [1m0.47[22m s
+[1m[36mstart  [39m[22m building [2mblocks/Binary/Trade[22m
+[1m[32mready  [39m[22m built in [1m0.46[22m s
+[1m[36mstart  [39m[22m building [2mblocks/Binary/Trade[22m
+[1m[32mready  [39m[22m built in [1m0.43[22m s
+[1m[36mstart  [39m[22m building [2mblocks/Binary/Trade[22m
+[1m[32mready  [39m[22m built in [1m0.49[22m s

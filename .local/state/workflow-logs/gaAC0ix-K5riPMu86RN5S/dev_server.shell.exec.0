@@ -1,0 +1,20 @@
+
+> bot@0.0.1 start
+> node node_modules/@rsbuild/core/bin/rsbuild.js dev
+
+[1G[0K[1m[38;2;181;251;237mR[39m[38;2;173;246;230ms[39m[38;2;164;242;224mb[39m[38;2;156;238;218mu[39m[38;2;148;233;211mi[39m[38;2;140;229;205ml[39m[38;2;131;224;198md[39m[38;2;131;224;198m [39m[38;2;123;220;192mv[39m[38;2;115;216;186m1[39m[38;2;107;211;179m.[39m[38;2;99;207;173m6[39m[38;2;90;203;167m.[39m[38;2;82;198;160m1[39m[38;2;74;194;154m4[39m[38;2;74;194;154m
+[39m[22m
+[1m[31merror  [39m[22m Failed to start dev server.
+[1m[31merror  [39m[22m Cannot find module '/home/runner/workspace/node_modules/@rsbuild/core/compiled/connect/index.js'
+[90mRequire stack:
+- /home/runner/workspace/node_modules/@rsbuild/core/dist/131.js
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1207:15)
+    at Module._load (node:internal/modules/cjs/loader:1038:27)
+    at Module.require (node:internal/modules/cjs/loader:1289:19)
+    at require (node:internal/modules/helpers:182:18)
+    at requireCompiledPackage (file:///home/runner/workspace/node_modules/@rsbuild/core/dist/131.js:1000:114)
+    at devServer_createDevServer (file:///home/runner/workspace/node_modules/@rsbuild/core/dist/131.js:7152:23)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async Object.startDevServer (file:///home/runner/workspace/node_modules/@rsbuild/core/dist/131.js:7405:21)
+    at async CAC.<anonymous> (file:///home/runner/workspace/node_modules/@rsbuild/core/dist/131.js:9183:13)[39m
+[1G[0K⠙[1G[0K

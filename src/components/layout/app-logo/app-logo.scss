@@ -1,0 +1,30 @@
+.app-header {
+    &__logo {
+        padding-inline-start: 1.2rem;
+        padding-inline-end: 2rem;
+        border-inline-end: 1px solid var(--general-section-1);
+        height: 32px;
+        display: flex;
+        align-items: center;
+
+        &--otivo {
+            gap: 0.8rem;
+            text-decoration: none;
+        }
+    }
+
+    &__logo-img {
+        height: 28px;
+        width: auto;
+        object-fit: contain;
+    }
+
+    &__logo-text {
+        font-family: Georgia, 'Times New Roman', Times, serif;
+        font-size: 1.8rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        color: var(--text-prominent, #fff);
+        white-space: nowrap;
+    }
+}
