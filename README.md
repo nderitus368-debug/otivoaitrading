@@ -48,3 +48,4 @@ SLACK_WEBHOOK=***
 "# deriv"
 "# deriv"
 "# deriv" 
+"# otivoaibot" 
