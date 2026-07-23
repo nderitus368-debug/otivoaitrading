@@ -71,10 +71,31 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
         this.data = {
             contract: {},
             proposals: [],
+            contracts: [],
         };
+        this.contractIds = new Set();
         this.subscription_id_for_accumulators = null;
         this.is_proposal_requested_for_accumulators = false;
         this.store = createStore(rootReducer, applyMiddleware(thunk));
+        this.virtual_manager = {
+            enabled: false,
+            threshold: 2,
+            count: 1,
+            after: 1,
+            token: '',
+            is_real_trading: false,
+            current_virtual_losses: 0,
+            current_real_trades: 0,
+            virtual_stat: { wins: 0, losses: 0, profit: 0 },
+        };
+    }
+
+    initVirtualTradeManager(options) {
+        this.virtual_manager = {
+            ...this.virtual_manager,
+            ...options,
+            enabled: true,
+        };
     }
 
     init(...args) {
@@ -88,16 +109,24 @@ export default class TradeEngine extends Balance(Purchase(Sell(OpenContract(Prop
         if (!this.checkTicksPromiseExists()) this.watchTicks(symbol);
     }
 
+    setPredictionDual(p1, p2) {
+        if (!this.tradeOptions) {
+            this.tradeOptions = {};
+        }
+        this.tradeOptions.prediction1 = p1;
+        this.tradeOptions.prediction2 = p2;
+    }
+
     start(tradeOptions) {
         if (!this.options) {
             throw createError('NotInitialized', localize('Bot.init is not called'));
         }
 
         globalObserver.emit('bot.running');
+        this.contractIds.clear();
 
         const validated_trade_options = this.validateTradeOptions(tradeOptions);
-
-        this.tradeOptions = { ...validated_trade_options, symbol: this.options.symbol };
+        this.tradeOptions = { ...this.tradeOptions, ...validated_trade_options, symbol: this.options.symbol };
         this.store.dispatch(start());
         this.checkLimits(validated_trade_options);
 

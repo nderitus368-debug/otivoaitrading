@@ -10,7 +10,6 @@ import { AppLogo } from '../app-logo';
 import AccountsInfoLoader from './account-info-loader';
 import AccountSwitcher from './account-switcher';
 import ApiTokenConnector from './api-token-connector';
-import ApiTokenDisconnect from './api-token-disconnect';
 import MenuItems from './menu-items';
 import MobileMenu from './mobile-menu';
 import './header.scss';
@@ -33,7 +32,6 @@ const AppHeader = observer(({ isAuthenticating }: TAppHeaderProps) => {
             return (
                 <>
                     <AccountSwitcher activeAccount={activeAccount} />
-                    <ApiTokenDisconnect />
                 </>
             );
         } else {

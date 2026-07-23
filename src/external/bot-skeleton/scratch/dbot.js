@@ -650,7 +650,7 @@ class DBot {
         const main_workspace_dom = document.getElementById('scratch_div');
         const local_drag_zone = document.getElementById('load-strategy__local-dropzone-area');
 
-        if (main_workspace_dom.contains(event.target)) {
+        if (main_workspace_dom && main_workspace_dom.contains(event.target)) {
             handleFileChange(event);
         } else if (local_drag_zone && local_drag_zone.contains(event.target)) {
             handleFileChange(event, false);

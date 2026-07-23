@@ -3,6 +3,8 @@ import { pluginReact } from '@rsbuild/plugin-react';
 import { pluginSass } from '@rsbuild/plugin-sass';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import tailwindcss from 'tailwindcss';
+import autoprefixer from 'autoprefixer';
 
 // Get __dirname equivalent in ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -27,6 +29,9 @@ const envVars = [
     'RUDDERSTACK_KEY',
     'GROWTHBOOK_CLIENT_KEY',
     'GROWTHBOOK_DECRYPTION_KEY',
+    'GEMINI_API_KEY',
+    'GEMINI_API_KEY_2',
+    'GEMINI_API_KEY_3',
 ];
 
 const envDefine = envVars.reduce((acc, varName) => {
@@ -126,6 +131,9 @@ export default defineConfig({
     },
 
     tools: {
+        postcss: (config, { addPlugins }) => {
+            addPlugins([tailwindcss, autoprefixer]);
+        },
         rspack: {
             plugins: [],
             resolve: {},

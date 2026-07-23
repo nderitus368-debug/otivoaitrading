@@ -9,9 +9,10 @@ import { useDevice } from '@deriv-com/ui';
 import { TBlocklyEvents } from 'Types';
 import LoadModal from '../../components/load-modal';
 import SaveModal from '../dashboard/bot-list/save-modal';
-import BotBuilderTourHandler from '../tutorials/dbot-tours/bot-builder-tour';
+
 import QuickStrategy1 from './quick-strategy';
 import WorkspaceWrapper from './workspace-wrapper';
+import AIBotButton from './ai-bot-builder/ai-bot-button';
 
 const BotBuilder = observer(() => {
     const { dashboard, app, run_panel, toolbar, quick_strategy, blockly_store } = useStore();
@@ -122,7 +123,8 @@ const BotBuilder = observer(() => {
                     <WorkspaceWrapper />
                 </div>
             </div>
-            {active_tab === 1 && <BotBuilderTourHandler is_mobile={!isDesktop} />}
+            {active_tab === 1 && !is_preview_on_popup && <AIBotButton />}
+
             {/* removed this outside from toolbar becuase it needs to loaded seperately without dependency */}
             <LoadModal />
             <SaveModal />

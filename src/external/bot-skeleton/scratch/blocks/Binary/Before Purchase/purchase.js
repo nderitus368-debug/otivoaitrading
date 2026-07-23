@@ -1,5 +1,6 @@
 import { localize } from '@deriv-com/translations';
 import { getContractTypeOptions } from '../../../shared';
+import { config } from '../../../../constants/config';
 import { excludeOptionFromContextMenu, modifyContextMenu } from '../../../utils';
 
 window.Blockly.Blocks.purchase = {
@@ -16,7 +17,16 @@ window.Blockly.Blocks.purchase = {
                 {
                     type: 'field_dropdown',
                     name: 'PURCHASE_LIST',
-                    options: [['', '']],
+                    options: [
+                        [localize('Rise'), 'CALL'],
+                        [localize('Fall'), 'PUT'],
+                        [localize('Matches'), 'DIGITMATCH'],
+                        [localize('Differs'), 'DIGITDIFF'],
+                        [localize('Over'), 'DIGITOVER'],
+                        [localize('Under'), 'DIGITUNDER'],
+                        [localize('Even'), 'DIGITEVEN'],
+                        [localize('Odd'), 'DIGITODD'],
+                    ],
                 },
             ],
             previousStatement: null,
@@ -57,20 +67,28 @@ window.Blockly.Blocks.purchase = {
         }
     },
     populatePurchaseList(event) {
-        const trade_definition_block = this.workspace.getTradeDefinitionBlock();
+        const purchase_type_list = this.getField('PURCHASE_LIST');
+        const purchase_type = purchase_type_list.getValue();
+        
+        // Aggregate ALL available contract types from config to support hybrid strategies
+        const opposites = config().opposites;
+        const all_options = [];
+        
+        Object.keys(opposites).forEach(key => {
+            const group = opposites[key];
+            group.forEach(option => {
+                const internal_value = Object.keys(option)[0];
+                const human_readable = option[internal_value];
+                if (!all_options.find(o => o[1] === internal_value)) {
+                    all_options.push([human_readable, internal_value]);
+                }
+            });
+        });
 
-        if (trade_definition_block) {
-            const trade_type_block = trade_definition_block.getChildByType('trade_definition_tradetype');
-            const trade_type = trade_type_block.getFieldValue('TRADETYPE_LIST');
-            const contract_type_block = trade_definition_block.getChildByType('trade_definition_contracttype');
-            const contract_type = contract_type_block.getFieldValue('TYPE_LIST');
-            const purchase_type_list = this.getField('PURCHASE_LIST');
-            const purchase_type = purchase_type_list.getValue();
-            const contract_type_options = getContractTypeOptions(contract_type, trade_type);
-
-            purchase_type_list.updateOptions(contract_type_options, {
+        if (all_options.length > 0) {
+            purchase_type_list.updateOptions(all_options, {
                 default_value: purchase_type,
-                event_group: event.group,
+                event_group: event?.group,
                 should_pretend_empty: true,
             });
         }

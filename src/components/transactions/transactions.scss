@@ -243,8 +243,20 @@
     }
 
     &__profit {
+        justify-content: flex-end;
+        display: flex;
+        align-items: center;
+
+        &-content {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: flex-end;
+        }
+
         &--win {
             color: var(--text-profit-success);
+            font-weight: bold;
 
             &:before {
                 content: '+';
@@ -253,11 +265,13 @@
 
         &--loss {
             color: var(--text-loss-danger);
+            font-weight: bold;
 
             &:before {
                 content: '-';
             }
         }
+
     }
 
     &__info {

@@ -31,6 +31,7 @@ export default class SummaryCardStore {
     disposeReactionsFn: () => void | null;
     disposeSwitchAcountListener: (() => void | null) | undefined;
     contract_info: ProposalOpenContract | null = null;
+    active_contracts: Map<string, ProposalOpenContract> = new Map();
     is_loading = false;
     indicative_movement = '';
     profit_movement = '';
@@ -62,6 +63,7 @@ export default class SummaryCardStore {
             has_contract_update_take_profit: observable,
             has_contract_update_stop_loss: observable,
             is_bot_running: observable,
+            active_contracts: observable,
             contract_update_config: observable,
             contract_id: observable,
             profit: observable,
@@ -119,6 +121,7 @@ export default class SummaryCardStore {
     clear(should_unset_contract = true) {
         if (should_unset_contract) {
             this.contract_info = null;
+            this.active_contracts.clear();
         }
 
         this.profit = 0;
@@ -184,6 +187,12 @@ export default class SummaryCardStore {
 
         // TODO only add props that is being used
         this.contract_info = contract;
+
+        if (contract.is_sold) {
+            this.active_contracts.delete(String(contract.contract_id));
+        } else {
+            this.active_contracts.set(String(contract.contract_id), contract as ProposalOpenContract);
+        }
     }
 
     onChange({ name, value }: { name: TValidationRuleIndex; value: string | boolean }) {

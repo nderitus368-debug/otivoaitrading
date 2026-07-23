@@ -9,6 +9,8 @@ const getBotInterface = tradeEngine => {
         start: (...args) => tradeEngine.start(...args),
         stop: (...args) => tradeEngine.stop(...args),
         purchase: contract_type => tradeEngine.purchase(contract_type),
+        purchaseDual: (type1, type2) => tradeEngine.purchaseDual(type1, type2),
+        setPredictionDual: (p1, p2) => tradeEngine.setPredictionDual(p1, p2),
         getAskPrice: contract_type => Number(getProposal(contract_type, tradeEngine).ask_price),
         getPayout: contract_type => Number(getProposal(contract_type, tradeEngine).payout),
         getPurchaseReference: () => tradeEngine.getPurchaseReference(),
@@ -18,6 +20,7 @@ const getBotInterface = tradeEngine => {
         isResult: result => getDetail(10) === result,
         isTradeAgain: result => globalObserver.emit('bot.trade_again', result),
         readDetails: i => getDetail(i - 1),
+        initVirtualTradeManager: options => tradeEngine.initVirtualTradeManager(options),
     };
 };
 

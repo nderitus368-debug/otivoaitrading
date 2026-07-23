@@ -166,10 +166,23 @@ export const ToolboxItems = () => {
                         </Shadow>
                     </Value>
                 </Block>
+                <Block type='set_prediction_dual'>
+                    <Value name='PREDICTION1'>
+                        <Shadow type='math_number'>
+                            <Field name='NUM'>0</Field>
+                        </Shadow>
+                    </Value>
+                    <Value name='PREDICTION2'>
+                        <Shadow type='math_number'>
+                            <Field name='NUM'>0</Field>
+                        </Shadow>
+                    </Value>
+                </Block>
             </Category>
             <Category id='purchase_conditions' name={localize('Purchase conditions')}>
                 <Block type='before_purchase' />
                 <Block type='purchase' />
+                <Block type='purchase_dual' />
             </Category>
             <Category id='sell_conditions' name={localize('Sell conditions (optional)')}>
                 <Block type='during_purchase' />
@@ -785,6 +798,7 @@ export const ToolboxItems = () => {
                             </Shadow>
                         </Value>
                     </Block>
+                    <Block type='virtual_trade_manager' />
                 </Category>
             </Category>
 

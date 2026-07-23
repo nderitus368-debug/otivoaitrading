@@ -77,7 +77,7 @@ export const validateErrorOnBlockDelete = () => {
     const blockX = blockRect?.left || 0;
     const blockY = blockRect?.top || 0;
     const mandatory_trade_option_block = getSelectedTradeType();
-    const required_block_types = [mandatory_trade_option_block, 'trade_definition', 'purchase', 'before_purchase'];
+    const required_block_types = [mandatory_trade_option_block, 'trade_definition', 'purchase', 'purchase_dual', 'before_purchase'];
     if (required_block_types?.includes(window.Blockly?.getSelected()?.type)) {
         if (
             blockY >= translate_Y - translate_offset &&
@@ -417,7 +417,7 @@ const getDisabledBlocks = required_blocks_check => {
             .filter(block => required_block_types.includes(block.type))
             .map(block => [block.type, block.disabled])
     );
-    const mandatory_blocks = ['before_purchase', 'purchase', 'trade_definition', 'trade_definition_tradeoptions'];
+    const mandatory_blocks = ['before_purchase', 'purchase', 'purchase_dual', 'trade_definition', 'trade_definition_tradeoptions'];
     const has_disabled_blocks = mandatory_blocks.some(type => disabled_blocks[type]);
 
     return has_disabled_blocks
@@ -451,7 +451,15 @@ export const isAllRequiredBlocksEnabled = workspace => {
 
     const mandatory_trade_option_block = getSelectedTradeType(workspace);
     const { mandatoryMainBlocks } = config();
-    const required_block_types = [mandatory_trade_option_block, ...mandatoryMainBlocks];
+    let required_block_types = [mandatory_trade_option_block, ...mandatoryMainBlocks];
+
+    const has_purchase = workspace.getAllBlocks().some(block => block.type === 'purchase');
+    const has_purchase_dual = workspace.getAllBlocks().some(block => block.type === 'purchase_dual');
+
+    if (has_purchase_dual) {
+        required_block_types = required_block_types.filter(type => type !== 'purchase');
+        required_block_types.push('purchase_dual');
+    }
 
     const required_blocks_check = getAllRequiredBlocks(workspace, required_block_types);
 

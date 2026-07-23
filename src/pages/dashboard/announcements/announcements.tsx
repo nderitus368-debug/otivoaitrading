@@ -13,7 +13,7 @@ import {
     rudderStackSendAnnouncementActionEvent,
     rudderStackSendAnnouncementClickEvent,
 } from '../../../analytics/rudderstack-dashboard';
-import { guide_content } from '../../tutorials/constants';
+
 import { performButtonAction } from './utils/accumulator-helper-functions';
 import { MessageAnnounce, TitleAnnounce } from './announcement-components';
 import AnnouncementDialog from './announcement-dialog';
@@ -144,12 +144,7 @@ const Announcements = observer(({ is_mobile, is_tablet, handleTabChange }: TAnno
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [read_announcements_map]);
 
-    const openAccumulatorsVideo = () => {
-        const accumulators_video = guide_content().find(guide_content => guide_content.id === 4);
-        if (accumulators_video) {
-            showVideoDialog({ url: accumulators_video.url, type: 'url' });
-        }
-    };
+    const openAccumulatorsVideo = () => {};
 
     const handleOnCancel = () => {
         rudderStackSendAnnouncementActionEvent({

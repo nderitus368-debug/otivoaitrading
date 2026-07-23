@@ -640,6 +640,7 @@ export default class RunPanelStore {
         this.dbot.interpreter.bot.getInterface().sellAtMarket();
     };
 
+
     clear = () => {
         observer.emit('statistics.clear');
     };

@@ -14,7 +14,23 @@
     }
 
     &--loading {
-        width: 100%;
+        margin-top: 0;
+    }
+
+    &-container {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+
+        &--dual {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+
+            @media (max-width: 768px) {
+                grid-template-columns: 1fr;
+            }
+        }
     }
 
     &--delayed-loading {

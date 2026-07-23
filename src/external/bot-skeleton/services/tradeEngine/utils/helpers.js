@@ -5,7 +5,7 @@ import { observer as globalObserver } from '../../../utils/observer';
 import { error as logError } from './broadcast';
 
 export const tradeOptionToProposal = (trade_option, purchase_reference) =>
-    trade_option.contractTypes.map(type => {
+    trade_option.contractTypes.map((type, index) => {
         const proposal = {
             amount: trade_option.amount,
             basis: trade_option.basis,
@@ -21,17 +21,33 @@ export const tradeOptionToProposal = (trade_option, purchase_reference) =>
             proposal: 1,
             symbol: trade_option.symbol,
         };
-        if (trade_option.prediction !== undefined) {
-            proposal.selected_tick = trade_option.prediction;
+
+        const is_digit_prediction = ['DIGITMATCH', 'DIGITDIFF', 'DIGITOVER', 'DIGITUNDER'].includes(type);
+        const is_digit_no_prediction = ['DIGITEVEN', 'DIGITODD'].includes(type);
+        const is_high_low_ticks = ['TICKLOW', 'TICKHIGH'].includes(type);
+
+        let prediction = trade_option.prediction;
+        if (index === 0 && trade_option.prediction1 !== undefined) {
+            prediction = trade_option.prediction1;
+        } else if (index === 1 && trade_option.prediction2 !== undefined) {
+            prediction = trade_option.prediction2;
         }
-        if (!['TICKLOW', 'TICKHIGH'].includes(type) && trade_option.prediction !== undefined) {
-            proposal.barrier = trade_option.prediction;
-        } else if (trade_option.barrierOffset !== undefined) {
+
+        if (prediction !== undefined) {
+            if (is_digit_prediction) {
+                proposal.selected_tick = prediction;
+                proposal.barrier = prediction;
+            } else if (is_high_low_ticks) {
+                proposal.selected_tick = prediction;
+            }
+        } else if (trade_option.barrierOffset !== undefined && !is_digit_no_prediction && !is_high_low_ticks) {
             proposal.barrier = trade_option.barrierOffset;
         }
-        if (trade_option.secondBarrierOffset !== undefined) {
+
+        if (trade_option.secondBarrierOffset !== undefined && !is_digit_no_prediction && !is_high_low_ticks) {
             proposal.barrier2 = trade_option.secondBarrierOffset;
         }
+
         if (['MULTUP', 'MULTDOWN'].includes(type)) {
             proposal.duration = undefined;
             proposal.duration_unit = undefined;
@@ -57,15 +73,23 @@ export const tradeOptionToBuy = (contract_type, trade_option) => {
             symbol: trade_option.symbol,
         },
     };
+
+    const is_digit_prediction = ['DIGITMATCH', 'DIGITDIFF', 'DIGITOVER', 'DIGITUNDER'].includes(contract_type);
+    const is_digit_no_prediction = ['DIGITEVEN', 'DIGITODD'].includes(contract_type);
+    const is_high_low_ticks = ['TICKLOW', 'TICKHIGH'].includes(contract_type);
+
     if (trade_option.prediction !== undefined) {
-        buy.parameters.selected_tick = trade_option.prediction;
-    }
-    if (!['TICKLOW', 'TICKHIGH'].includes(contract_type) && trade_option.prediction !== undefined) {
-        buy.parameters.barrier = trade_option.prediction;
-    } else if (trade_option.barrierOffset !== undefined) {
+        if (is_digit_prediction) {
+            buy.parameters.selected_tick = trade_option.prediction;
+            buy.parameters.barrier = trade_option.prediction;
+        } else if (is_high_low_ticks) {
+            buy.parameters.selected_tick = trade_option.prediction;
+        }
+    } else if (trade_option.barrierOffset !== undefined && !is_digit_no_prediction && !is_high_low_ticks) {
         buy.parameters.barrier = trade_option.barrierOffset;
     }
-    if (trade_option.secondBarrierOffset !== undefined) {
+
+    if (trade_option.secondBarrierOffset !== undefined && !is_digit_no_prediction && !is_high_low_ticks) {
         buy.parameters.barrier2 = trade_option.secondBarrierOffset;
     }
     if (!isEmptyObject(trade_option.app_markup_percentage)) {

@@ -101,30 +101,9 @@ const useMobileMenuConfig = (client?: RootStore['client']) => {
             [
                 {
                     as: 'a',
-                    href: standalone_routes.bot,
-                    label: localize('Trade'),
-                    LeftComponent: LegacyChartsIcon,
-                    isActive: true, // Always highlight Trade as active
-                },
-                {
-                    as: 'a',
                     href: getRedirectUrl(),
                     label: localize('Account Settings'),
                     LeftComponent: LegacyProfileSmIcon,
-                },
-                !has_wallet &&
-                    !is_hub_enabled_country && {
-                        as: 'a',
-                        href: standalone_routes.cashier_deposit,
-                        label: localize('Cashier'),
-                        LeftComponent: LegacyCashierIcon,
-                    },
-                client?.is_logged_in && {
-                    as: 'button',
-                    label: localize('Reports'),
-                    LeftComponent: LegacyReportsIcon,
-                    submenu: 'reports',
-                    onClick: () => {},
                 },
                 {
                     as: 'button',
@@ -133,45 +112,7 @@ const useMobileMenuConfig = (client?: RootStore['client']) => {
                     RightComponent: <ToggleSwitch value={is_dark_mode_on} onChange={toggleTheme} />,
                 },
             ].filter(Boolean) as TMenuConfig,
-            [
-                {
-                    as: 'a',
-                    href: standalone_routes.help_center,
-                    label: localize('Help center'),
-                    LeftComponent: LegacyHelpCentreIcon,
-                },
-                {
-                    as: 'a',
-                    href: standalone_routes.account_limits,
-                    label: localize('Account limits'),
-                    LeftComponent: LegacyAccountLimitsIcon,
-                },
-                {
-                    as: 'a',
-                    href: standalone_routes.responsible,
-                    label: localize('Responsible trading'),
-                    LeftComponent: LegacyResponsibleTradingIcon,
-                },
-                cs_chat_whatsapp
-                    ? {
-                          as: 'a',
-                          href: URLConstants.whatsApp,
-                          label: localize('WhatsApp'),
-                          LeftComponent: LegacyWhatsappIcon,
-                          target: '_blank',
-                      }
-                    : null,
-                is_livechat_available || icAvailable
-                    ? {
-                          as: 'button',
-                          label: localize('Live chat'),
-                          LeftComponent: Livechat,
-                          onClick: () => {
-                              icAvailable ? window.Intercom('show') : window.LiveChatWidget?.call('maximize');
-                          },
-                      }
-                    : null,
-            ].filter(Boolean) as TMenuConfig,
+            [],
             // Logout button removed from mobile interface as per acceptance criteria
             [],
         ],

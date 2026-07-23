@@ -5,6 +5,7 @@ import Button from '@/components/shared_ui/button';
 import { useFirebaseCountriesConfig } from '@/hooks/firebase/useFirebaseCountriesConfig';
 import useStoreWalletAccountsList from '@/hooks/useStoreWalletAccountsList';
 import { getWalletUrl, handleTraderHubRedirect } from '@/utils/traders-hub-redirect';
+import { LogOut } from 'lucide-react';
 import { Localize, localize } from '@deriv-com/translations';
 import { AccountSwitcher as UIAccountSwitcher } from '@deriv-com/ui';
 
@@ -17,7 +18,7 @@ type TAccountSwitcherFooter = {
 };
 import { AccountSwitcherDivider } from './utils';
 
-const AccountSwitcherFooter = ({ loginid, residence, type }: TAccountSwitcherFooter) => {
+const AccountSwitcherFooter = ({ loginid, residence, type, oAuthLogout, is_logging_out }: TAccountSwitcherFooter) => {
     const accountList = JSON.parse(localStorage.getItem('clientAccounts') || '{}');
     const account_currency = loginid ? accountList[loginid]?.currency : '';
     // Hide manage button for demo accounts (virtual accounts)
@@ -64,12 +65,13 @@ const AccountSwitcherFooter = ({ loginid, residence, type }: TAccountSwitcherFoo
                 {localize(`Looking for CFD accounts? Go to Trader's Hub`)}
             </UIAccountSwitcher.TradersHubLink>
             <AccountSwitcherDivider />
-            {!is_virtual_tab && (
-                <div
-                    className={classNames('account-switcher-footer__actions', {
-                        'account-switcher-footer__actions--hide-manage-button': !show_manage_button,
-                    })}
-                >
+            <div
+                className={classNames('account-switcher-footer__actions', {
+                    'account-switcher-footer__actions--hide-manage-button': (!show_manage_button || is_virtual_tab),
+                })}
+                style={{ display: 'flex', justifyContent: (!show_manage_button || is_virtual_tab) ? 'flex-end' : 'space-between', alignItems: 'center', width: '100%' }}
+            >
+                {!is_virtual_tab && show_manage_button && (
                     <Button
                         id='manage-button'
                         className='manage-button'
@@ -84,9 +86,19 @@ const AccountSwitcherFooter = ({ loginid, residence, type }: TAccountSwitcherFoo
                     >
                         <Localize i18n_default_text='Manage accounts' />
                     </Button>
-                    {/* Logout button removed from Desktop interface as per acceptance criteria */}
-                </div>
-            )}
+                )}
+                <Button
+                    id='dt_logout_button'
+                    className='logout-button'
+                    color='secondary'
+                    onClick={oAuthLogout}
+                    disabled={is_logging_out}
+                    style={{ padding: '8px 12px', minWidth: 'unset', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    title={localize('Log out')}
+                >
+                    <LogOut size={18} />
+                </Button>
+            </div>
         </div>
     );
 };

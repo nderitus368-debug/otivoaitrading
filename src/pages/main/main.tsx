@@ -34,7 +34,7 @@ import RunStrategy from '../dashboard/run-strategy';
 import './main.scss';
 
 const ChartWrapper = lazy(() => import('../chart/chart-wrapper'));
-const Tutorial = lazy(() => import('../tutorials'));
+const Performance = lazy(() => import('../performance'));
 const FreeBots = lazy(() => import('../free-bots'));
 const AnalysisTool = lazy(() => import('../analysis-tool'));
 
@@ -68,7 +68,7 @@ const AppWrapper = observer(() => {
     const { clear } = summary_card;
     const { DASHBOARD, BOT_BUILDER } = DBOT_TABS;
     const init_render = React.useRef(true);
-    const hash = ['dashboard', 'bot_builder', 'chart', 'tutorial', 'free_bots', 'analysis_tool'];
+    const hash = ['dashboard', 'bot_builder', 'chart', 'performance', 'free_bots', 'analysis_tool'];
     const { isDesktop } = useDevice();
     const location = useLocation();
     const navigate = useNavigate();
@@ -87,7 +87,7 @@ const AppWrapper = observer(() => {
 
     React.useEffect(() => {
         const el_dashboard = document.getElementById('id-dbot-dashboard');
-        const el_tutorial = document.getElementById('id-tutorials');
+        const el_performance = document.getElementById('id-performance');
 
         const observer_dashboard = new window.IntersectionObserver(
             ([entry]) => {
@@ -103,7 +103,7 @@ const AppWrapper = observer(() => {
             }
         );
 
-        const observer_tutorial = new window.IntersectionObserver(
+        const observer_performance = new window.IntersectionObserver(
             ([entry]) => {
                 if (entry.isIntersecting) {
                     setRightTabShadow(false);
@@ -117,7 +117,7 @@ const AppWrapper = observer(() => {
             }
         );
         observer_dashboard.observe(el_dashboard);
-        observer_tutorial.observe(el_tutorial);
+        observer_performance.observe(el_performance);
     });
 
     React.useEffect(() => {
@@ -166,7 +166,7 @@ const AppWrapper = observer(() => {
 
         // Prevent scrolling when tutorial tab is active (only on mobile)
         const mainElement = document.querySelector('.main__container');
-        if (active_tab === DBOT_TABS.TUTORIAL && !isDesktop) {
+        if (active_tab === DBOT_TABS.PERFORMANCE && !isDesktop) {
             document.body.style.overflow = 'hidden';
             if (mainElement instanceof HTMLElement) {
                 mainElement.classList.add('no-scroll');
@@ -331,24 +331,23 @@ const AppWrapper = observer(() => {
                             <div
                                 label={
                                     <>
-                                        <LegacyGuide1pxIcon
-                                            height='16px'
-                                            width='16px'
+                                        <LabelPairedChartLineCaptionRegularIcon
+                                            height='24px'
+                                            width='24px'
                                             fill='var(--text-general)'
-                                            className='icon-general-fill-g-path'
                                         />
-                                        <Localize i18n_default_text='Tutorials' />
+                                        <Localize i18n_default_text='Performance' />
                                     </>
                                 }
-                                id='id-tutorials'
+                                id='id-performance'
                             >
-                                <div className='tutorials-wrapper'>
+                                <div className='performance-wrapper'>
                                     <Suspense
                                         fallback={
-                                            <ChunkLoader message={localize('Please wait, loading tutorials...')} />
+                                            <ChunkLoader message={localize('Please wait, loading performance...')} />
                                         }
                                     >
-                                        <Tutorial handleTabChange={handleTabChange} />
+                                        <Performance />
                                     </Suspense>
                                 </div>
                             </div>

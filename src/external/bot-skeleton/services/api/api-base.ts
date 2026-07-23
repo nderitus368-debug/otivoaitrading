@@ -59,6 +59,13 @@ class APIBase {
     active_symbols_promise: Promise<void> | null = null;
     common_store: CommonStore | undefined;
     landing_company: string | null = null;
+    secondary_api: TApiBaseApi | null = null;
+    secondary_token: string = '';
+    secondary_is_authorized: boolean = false;
+    demo_api: TApiBaseApi | null = null;
+    demo_token: string = '';
+    demo_is_authorized: boolean = false;
+    token_override: string | null = null;
 
     unsubscribeAllSubscriptions = () => {
         this.current_auth_subscriptions?.forEach(subscription_promise => {
@@ -156,8 +163,68 @@ class APIBase {
         }
     };
 
+    async getSecondaryApi(token: string) {
+        if (this.secondary_api && this.secondary_token === token && this.secondary_is_authorized) {
+            return this.secondary_api;
+        }
+
+        this.secondary_token = token;
+        const api = generateDerivApiInstance() as TApiBaseApi;
+        
+        try {
+            const { error } = await api.authorize(token);
+            if (error) {
+                console.error('Secondary API Authorization error:', error);
+                return null;
+            }
+            this.secondary_api = api;
+            this.secondary_is_authorized = true;
+            return api;
+        } catch (e) {
+            console.error('Secondary API Authorization failed:', e);
+            return null;
+        }
+    }
+
+    async getDemoApi() {
+        if (this.demo_api && this.demo_is_authorized) {
+            return this.demo_api;
+        }
+
+        const account_list = JSON.parse(localStorage.getItem('accountsList') || '{}');
+        const demo_loginid = Object.keys(account_list).find(loginid => loginid.startsWith('VRTC'));
+        
+        if (!demo_loginid) return null;
+        
+        const token = account_list[demo_loginid];
+        this.demo_token = token;
+        const api = generateDerivApiInstance() as TApiBaseApi;
+        
+        try {
+            const { error } = await api.authorize(token);
+            if (error) {
+                console.error('Demo API Authorization error:', error);
+                return null;
+            }
+            this.demo_api = api;
+            this.demo_is_authorized = true;
+            return api;
+        } catch (e) {
+            console.error('Demo API Authorization failed:', e);
+            return null;
+        }
+    }
+
+    async setTokenOverride(token: string | null) {
+        this.token_override = token;
+        if (this.api) {
+            await this.api.authorize(token || V2GetActiveToken());
+            this.authorizeAndSubscribe(); // Re-subscribe to everything on the new account
+        }
+    }
+
     async authorizeAndSubscribe() {
-        const token = V2GetActiveToken();
+        const token = this.token_override || V2GetActiveToken();
         if (!token || !this.api) return;
         this.token = token;
         this.account_id = V2GetActiveClientId() ?? '';

@@ -13,8 +13,10 @@ export default Engine =>
             // Generate a purchase reference when trade options are different from previous trade options.
             // This will ensure the bot doesn't mistakenly purchase the wrong proposal.
             this.regeneratePurchaseReference();
-            this.trade_option = trade_option;
-            this.proposal_templates = tradeOptionToProposal(trade_option, this.getPurchaseReference());
+            this.trade_option = { ...trade_option };
+
+
+            this.proposal_templates = tradeOptionToProposal(this.trade_option, this.getPurchaseReference());
             this.renewProposalsOnPurchase();
         }
 

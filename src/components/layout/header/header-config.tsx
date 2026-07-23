@@ -76,29 +76,4 @@ export const TRADERS_HUB_LINK_CONFIG = {
     label: "Trader's Hub",
 };
 
-export const MenuItems: MenuItemsConfig[] = [
-    {
-        as: 'a',
-        href: standalone_routes.cashier,
-        icon: <CashierLogo iconSize='xs' />,
-        label: localize('Cashier'),
-    },
-    {
-        as: 'a',
-        href: standalone_routes.reports,
-        icon: <ReportsLogo iconSize='xs' />,
-        label: localize('Reports'),
-    },
-    {
-        as: 'a',
-        href: standalone_routes.free_bots,
-        icon: <RobotLogo iconSize='xs' />,
-        label: localize('Free Bots'),
-    },
-    {
-        as: 'a',
-        href: standalone_routes.analysis_tool,
-        icon: <AnalyticsLogo iconSize='xs' />,
-        label: localize('Analysis Tool'),
-    },
-];
+export const MenuItems: MenuItemsConfig[] = [];

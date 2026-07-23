@@ -11,7 +11,7 @@ type TSummary = {
 
 const Summary = observer(({ is_drawer_open }: TSummary) => {
     const { dashboard, summary_card } = useStore();
-    const { is_contract_loading, contract_info, is_bot_running } = summary_card;
+    const { is_contract_loading, contract_info, is_bot_running, active_contracts } = summary_card;
     const { active_tour } = dashboard;
     const { isDesktop } = useDevice();
     return (
@@ -30,11 +30,24 @@ const Summary = observer(({ is_drawer_open }: TSummary) => {
                         (!isDesktop && is_contract_loading) || (!isDesktop && !is_contract_loading && contract_info),
                 })}
             >
-                <SummaryCard
-                    is_contract_loading={is_contract_loading}
-                    contract_info={contract_info}
-                    is_bot_running={is_bot_running}
-                />
+                <div className={classnames('summary-container', { 'summary-container--dual': active_contracts.size > 1 })}>
+                    {active_contracts.size > 0 ? (
+                        Array.from(active_contracts.values()).map(contract => (
+                            <SummaryCard
+                                key={contract.contract_id}
+                                is_contract_loading={false}
+                                contract_info={contract}
+                                is_bot_running={is_bot_running}
+                            />
+                        ))
+                    ) : (
+                        <SummaryCard
+                            is_contract_loading={is_contract_loading}
+                            contract_info={contract_info}
+                            is_bot_running={is_bot_running}
+                        />
+                    )}
+                </div>
             </ThemedScrollbars>
         </div>
     );

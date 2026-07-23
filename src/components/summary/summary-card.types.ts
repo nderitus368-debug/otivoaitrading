@@ -14,6 +14,7 @@ export type TContractInfo = Omit<
     entry_tick_time?: TDateType;
     exit_tick?: TDateType;
     exit_tick_time?: TDateType;
+    is_virtual?: boolean;
 };
 
 export interface TSummaryCardProps {
