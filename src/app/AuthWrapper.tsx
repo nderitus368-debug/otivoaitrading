@@ -3,6 +3,7 @@ import Cookies from 'js-cookie';
 import ChunkLoader from '@/components/loader/chunk-loader';
 import { generateDerivApiInstance } from '@/external/bot-skeleton/services/api/appId';
 import { observer as globalObserver } from '@/external/bot-skeleton/utils/observer';
+import { exchangeCodeForToken, fetchAccounts } from '@/hooks/auth/useOauth2';
 import { useOfflineDetection } from '@/hooks/useOfflineDetection';
 import { clearAuthData } from '@/utils/auth-utils';
 import { localize } from '@deriv-com/translations';
@@ -106,6 +107,84 @@ export const AuthWrapper = () => {
     React.useEffect(() => {
         const initializeAuth = async () => {
             try {
+                // Check if returning from Deriv OAuth with authorization code
+                const urlParams = new URLSearchParams(window.location.search);
+                const code = urlParams.get('code');
+                const verifier = sessionStorage.getItem('pkce_code_verifier');
+
+                if (code && verifier) {
+                    try {
+                        const tokenData = await exchangeCodeForToken(code, verifier);
+                        sessionStorage.removeItem('pkce_code_verifier');
+                        sessionStorage.removeItem('oauth_state');
+
+                        if (tokenData?.access_token) {
+                            localStorage.setItem('deriv_oauth_access_token', tokenData.access_token);
+                            if (tokenData.refresh_token) {
+                                localStorage.setItem('deriv_oauth_refresh_token', tokenData.refresh_token);
+                            }
+
+                            try {
+                                const accounts = await fetchAccounts(tokenData.access_token);
+                                if (Array.isArray(accounts) && accounts.length > 0) {
+                                    const accountsList: Record<string, string> = {};
+                                    const clientAccounts: Record<string, any> = {};
+
+                                    accounts.forEach((acc: any) => {
+                                        const id = acc.account_id || acc.id || acc.loginid;
+                                        const tok = acc.token || tokenData.access_token;
+                                        accountsList[id] = tok;
+                                        clientAccounts[id] = {
+                                            loginid: id,
+                                            token: tok,
+                                            currency: acc.currency || 'USD',
+                                            is_virtual: acc.is_virtual ? 1 : 0,
+                                        };
+                                    });
+
+                                    const activeId =
+                                        accounts[0].account_id || accounts[0].id || accounts[0].loginid;
+                                    localStorage.setItem('accountsList', JSON.stringify(accountsList));
+                                    localStorage.setItem('clientAccounts', JSON.stringify(clientAccounts));
+                                    localStorage.setItem('authToken', accountsList[activeId]);
+                                    localStorage.setItem('active_loginid', activeId);
+                                } else {
+                                    localStorage.setItem('authToken', tokenData.access_token);
+                                }
+                            } catch (fetchErr) {
+                                console.warn('[Auth] Failed to fetch accounts via options API:', fetchErr);
+                                localStorage.setItem('authToken', tokenData.access_token);
+                            }
+
+                            try {
+                                const api = await generateDerivApiInstance();
+                                if (api) {
+                                    const activeToken = localStorage.getItem('authToken');
+                                    if (activeToken) {
+                                        await api.authorize(activeToken);
+                                    }
+                                    api.disconnect();
+                                }
+                            } catch (apiErr) {
+                                console.warn('[Auth] WebSocket authorization after PKCE exchange failed:', apiErr);
+                            }
+
+                            urlParams.delete('code');
+                            urlParams.delete('state');
+                            const cleanSearch = urlParams.toString();
+                            const cleanUrl = `${window.location.pathname}${cleanSearch ? `?${cleanSearch}` : ''}${window.location.hash}`;
+                            window.history.replaceState({}, document.title, cleanUrl);
+
+                            setIsAuthComplete(true);
+                            return;
+                        }
+                    } catch (codeErr) {
+                        console.error('[Auth] PKCE token exchange failed:', codeErr);
+                        sessionStorage.removeItem('pkce_code_verifier');
+                        sessionStorage.removeItem('oauth_state');
+                    }
+                }
+
                 // Pass isOnline to setLocalStorageToken to handle offline mode properly
                 await setLocalStorageToken(loginInfo, paramsToDelete, setIsAuthComplete, isOnline);
                 URLUtils.filterSearchParams(['lang']);

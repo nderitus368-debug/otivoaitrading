@@ -35,7 +35,7 @@ import '../components/bot-notification/bot-notification.scss';
 const AppContent = observer(() => {
     const [is_api_initialized, setIsApiInitialized] = React.useState(false);
     const [is_loading, setIsLoading] = React.useState(true);
-    const [is_eu_error_loading, setIsEuErrorLoading] = React.useState(true);
+    const [is_eu_error_loading, setIsEuErrorLoading] = React.useState(false);
     const [offline_timeout, setOfflineTimeout] = React.useState(null);
     const store = useStore();
     const { app, transactions, common, client } = store;
@@ -82,6 +82,23 @@ const AppContent = observer(() => {
         }
     }, [common, connectionStatus, offline_timeout]);
 
+    // Safety fallback timeout to prevent infinite loading under any scenario
+    useEffect(() => {
+        const timeout = setTimeout(() => {
+            if (is_loading) {
+                console.log('[AppContent] Fallback timeout reached, revealing dashboard');
+                setIsLoading(false);
+                setIsEuErrorLoading(false);
+                setIsApiInitialized(true);
+                if (!app.dbot_store) {
+                    init();
+                }
+            }
+        }, 3000);
+
+        return () => clearTimeout(timeout);
+    }, [is_loading, app.dbot_store]);
+
     // Handle offline scenarios - don't wait indefinitely for API
     useEffect(() => {
         if (!isOnline && is_loading) {
@@ -94,7 +111,7 @@ const AppContent = observer(() => {
                 if (!app.dbot_store) {
                     init();
                 }
-            }, 3000); // Wait 3 seconds for potential connection, then show dashboard
+            }, 2000); // Wait 2 seconds for potential connection, then show dashboard
 
             setOfflineTimeout(timeout);
         } else if (isOnline && offline_timeout) {
@@ -130,13 +147,17 @@ const AppContent = observer(() => {
             // For logged out users
             if (clients_logged_out_country_code) {
                 const is_restricted = !!bot_restricted_countries[clients_logged_out_country_code];
-                setIsEuErrorLoading(client.is_eu_country && is_restricted);
+                setIsEuErrorLoading(Boolean(client.is_eu_country && is_restricted));
+            } else {
+                setIsEuErrorLoading(false);
             }
         } else {
             // For logged in users
             if (clients_logged_in_country_code) {
                 const is_restricted = !!bot_restricted_countries[clients_logged_in_country_code];
-                setIsEuErrorLoading(is_restricted);
+                setIsEuErrorLoading(Boolean(is_restricted));
+            } else {
+                setIsEuErrorLoading(false);
             }
         }
     }, [is_eu_country, clients_logged_out_country_code, clients_logged_in_country_code, is_client_logged_in]);
@@ -203,12 +224,18 @@ const AppContent = observer(() => {
                 return;
             }
 
+            const timeoutId = setTimeout(() => {
+                setIsLoading(false);
+            }, 4000);
+
             active_symbols
                 .retrieveActiveSymbols(true)
                 .then(() => {
+                    clearTimeout(timeoutId);
                     setIsLoading(false);
                 })
                 .catch(error => {
+                    clearTimeout(timeoutId);
                     console.error('[API] Failed to retrieve active symbols:', error);
                     // Don't stay in loading state if API fails
                     setIsLoading(false);
@@ -239,7 +266,7 @@ const AppContent = observer(() => {
                     console.log('[Timeout] Active symbols loading timeout, showing dashboard');
                     setIsLoading(false);
                 }
-            }, 10000); // 10 second timeout
+            }, 5000); // 5 second timeout
         }
     };
 
@@ -260,8 +287,16 @@ const AppContent = observer(() => {
 
     // use is_landing_company_loaded to know got details of accounts to identify should show an error or not
     React.useEffect(() => {
-        if (client.is_logged_in && client.is_landing_company_loaded && is_api_initialized) {
-            changeActiveSymbolLoadingState();
+        if (client.is_logged_in && is_api_initialized) {
+            if (client.is_landing_company_loaded) {
+                changeActiveSymbolLoadingState();
+            } else {
+                const timeout = setTimeout(() => {
+                    changeActiveSymbolLoadingState();
+                    setIsLoading(false);
+                }, 4000);
+                return () => clearTimeout(timeout);
+            }
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [client.is_landing_company_loaded, is_api_initialized, client.loginid]);

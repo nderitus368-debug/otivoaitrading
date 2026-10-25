@@ -123,11 +123,13 @@ export default defineConfig({
 
     dev: {
         hmr: true,
-        client: {
-            host: process.env.REPLIT_DEV_DOMAIN || 'localhost',
-            port: 443,
-            protocol: 'wss',
-        },
+        client: process.env.REPLIT_DEV_DOMAIN
+            ? {
+                  host: process.env.REPLIT_DEV_DOMAIN,
+                  port: 443,
+                  protocol: 'wss',
+              }
+            : undefined,
     },
 
     tools: {

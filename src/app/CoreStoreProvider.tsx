@@ -144,9 +144,16 @@ const CoreStoreProvider: React.FC<{ children: React.ReactNode }> = observer(({ c
         if (client && connectionStatus === CONNECTION_STATUS.OPENED && api_base?.api) {
             if (!appInitialization.current) {
                 appInitialization.current = true;
-                api_base.api?.websiteStatus().then((res: TSocketResponseData<'website_status'>) => {
-                    client.setWebsiteStatus(res.website_status);
-                });
+                api_base.api
+                    ?.websiteStatus()
+                    ?.then((res: TSocketResponseData<'website_status'>) => {
+                        if (res?.website_status) {
+                            client.setWebsiteStatus(res.website_status);
+                        }
+                    })
+                    ?.catch((error: unknown) => {
+                        console.warn('[CoreStore] websiteStatus request failed:', error);
+                    });
             }
 
             // Initial time update

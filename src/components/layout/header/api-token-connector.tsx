@@ -1,9 +1,11 @@
 import React, { useRef, useState } from 'react';
 import { api_base } from '@/external/bot-skeleton';
 import { generateDerivApiInstance } from '@/external/bot-skeleton/services/api/appId';
+import { useOauth2 } from '@/hooks/auth/useOauth2';
 import './api-token-connector.scss';
 
 const ApiTokenConnector = () => {
+    const { login, isLoggingIn } = useOauth2();
     const [isExpanded, setIsExpanded] = useState(false);
     const [token, setToken] = useState('');
     const [error, setError] = useState('');
@@ -94,9 +96,23 @@ const ApiTokenConnector = () => {
     return (
         <div className='api-token-connector'>
             {!isExpanded ? (
-                <button className='api-token-connector__btn' onClick={openForm}>
-                    Connect
-                </button>
+                <div className='api-token-connector__actions'>
+                    <button
+                        className='api-token-connector__btn'
+                        onClick={() => login()}
+                        disabled={isLoggingIn}
+                        title='Log in with your Deriv account'
+                    >
+                        {isLoggingIn ? 'Logging in…' : 'Log in'}
+                    </button>
+                    <button
+                        className='api-token-connector__api-token-btn'
+                        onClick={openForm}
+                        title='Connect with API token'
+                    >
+                        API Token
+                    </button>
+                </div>
             ) : (
                 <div className='api-token-connector__form'>
                     <div className='api-token-connector__input-row'>

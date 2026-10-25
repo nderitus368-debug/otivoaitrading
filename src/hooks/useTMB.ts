@@ -72,6 +72,8 @@ const useTMB = (): UseTMBReturn => {
             const configServerUrl = localStorage.getItem('config.server_url');
             if (configServerUrl) {
                 const valid_server_urls = [
+                    'ws.derivws.com',
+                    'ws.binaryws.com',
                     'green.derivws.com',
                     'red.derivws.com',
                     'blue.derivws.com',
