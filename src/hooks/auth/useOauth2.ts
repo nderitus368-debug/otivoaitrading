@@ -3,8 +3,27 @@ import { useState } from 'react';
 export const APP_ID = '69546';
 export const NEW_CLIENT_ID = '34EgGcZ4kdDYvSMRn1Jxo';
 
+const OAUTH_ACCESS_TOKEN_KEY = 'deriv_oauth_access_token';
+const OAUTH_REFRESH_TOKEN_KEY = 'deriv_oauth_refresh_token';
+
+export const getOAuthAccessToken = () =>
+    sessionStorage.getItem(OAUTH_ACCESS_TOKEN_KEY) ?? localStorage.getItem(OAUTH_ACCESS_TOKEN_KEY) ?? '';
+
+export const setOAuthAccessToken = (token: string) => {
+    sessionStorage.setItem(OAUTH_ACCESS_TOKEN_KEY, token);
+    localStorage.removeItem(OAUTH_ACCESS_TOKEN_KEY);
+};
+
+export const getOAuthRefreshToken = () =>
+    sessionStorage.getItem(OAUTH_REFRESH_TOKEN_KEY) ?? localStorage.getItem(OAUTH_REFRESH_TOKEN_KEY) ?? '';
+
+export const setOAuthRefreshToken = (token: string) => {
+    sessionStorage.setItem(OAUTH_REFRESH_TOKEN_KEY, token);
+    localStorage.removeItem(OAUTH_REFRESH_TOKEN_KEY);
+};
+
 export const refreshAccessToken = async (): Promise<string | null> => {
-    const refreshToken = localStorage.getItem('deriv_oauth_refresh_token');
+    const refreshToken = getOAuthRefreshToken();
     if (!refreshToken) return null;
 
     try {
@@ -22,9 +41,9 @@ export const refreshAccessToken = async (): Promise<string | null> => {
             console.warn('Failed to refresh token:', data.error_description || data.error);
             return null;
         }
-        localStorage.setItem('deriv_oauth_access_token', data.access_token);
+        setOAuthAccessToken(data.access_token);
         if (data.refresh_token) {
-            localStorage.setItem('deriv_oauth_refresh_token', data.refresh_token);
+            setOAuthRefreshToken(data.refresh_token);
         }
         return data.access_token;
     } catch (err) {
@@ -151,21 +170,16 @@ export const useOauth2 = (options?: { handleLogout?: () => Promise<void>; client
     const login = async () => {
         setIsLoggingIn(true);
 
-        // Clear any previous PKCE / state values before generating new ones
         sessionStorage.removeItem('pkce_code_verifier');
         sessionStorage.removeItem('oauth_state');
         sessionStorage.removeItem('oauth_exchanging_code');
 
-        // 1. Generate PKCE values using official Deriv standard
         const { code_verifier, code_challenge, code_challenge_method } = await createPkce();
-        // Deriv requires state to be at least 8 characters long with high entropy
         const state = generateState();
 
-        // 2. Store verifier and state for the callback step
         sessionStorage.setItem('pkce_code_verifier', code_verifier);
         sessionStorage.setItem('oauth_state', state);
 
-        // 3. Construct Auth URL cleanly
         const redirectUri = getRedirectUri();
         const authUrl = new URL('https://auth.deriv.com/oauth2/auth');
         authUrl.searchParams.set('response_type', 'code');
@@ -193,8 +207,11 @@ export const useOauth2 = (options?: { handleLogout?: () => Promise<void>; client
     const logout = async () => {
         sessionStorage.removeItem('pkce_code_verifier');
         sessionStorage.removeItem('oauth_state');
-        localStorage.removeItem('deriv_oauth_access_token');
-        localStorage.removeItem('deriv_oauth_refresh_token');
+        sessionStorage.removeItem('oauth_exchanging_code');
+        sessionStorage.removeItem(OAUTH_ACCESS_TOKEN_KEY);
+        sessionStorage.removeItem(OAUTH_REFRESH_TOKEN_KEY);
+        localStorage.removeItem(OAUTH_ACCESS_TOKEN_KEY);
+        localStorage.removeItem(OAUTH_REFRESH_TOKEN_KEY);
         localStorage.removeItem('authToken');
         localStorage.removeItem('active_loginid');
         localStorage.removeItem('accountsList');
