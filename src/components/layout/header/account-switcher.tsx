@@ -6,7 +6,7 @@ import { addComma, getDecimalPlaces } from '@/components/shared';
 import Popover from '@/components/shared_ui/popover';
 import { api_base } from '@/external/bot-skeleton';
 import { setAuthData } from '@/external/bot-skeleton/services/api/observables/connection-status-stream';
-import { fetchAccounts, useOauth2 } from '@/hooks/auth/useOauth2';
+import { fetchAccounts, getOAuthAccessToken, useOauth2 } from '@/hooks/auth/useOauth2';
 import { useApiBase } from '@/hooks/useApiBase';
 import { useStore } from '@/hooks/useStore';
 import { isAccountDemo, parseAccountDetails } from '@/utils/auth-utils';
@@ -42,7 +42,6 @@ const RenderAccountItems = ({
     const residence = client.residence;
 
     useEffect(() => {
-        // Update the max-height from the accordion content set from deriv-com/ui
         const parent_container = document.getElementsByClassName('account-switcher-panel')?.[0] as HTMLDivElement;
         if (!isVirtual && parent_container) {
             parent_container.style.maxHeight = '70vh';
@@ -156,10 +155,8 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
         const targetLoginId = String(loginId);
         if (targetLoginId === activeAccount?.loginid) return;
 
-        // 1. Stop old balance subscription before switching accounts
         api_base.unsubscribeAllSubscriptions();
 
-        // 2. Locate target account
         const selected_account =
             accountList?.find(acc => acc.loginid === targetLoginId) ||
             modifiedAccountList?.find(acc => acc.loginid === targetLoginId);
@@ -168,25 +165,21 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
         const accountType = isVirtual ? 'demo' : 'real';
         const targetCurrency = selected_account?.currency || 'USD';
 
-        // 3. Store selected Deriv account ID and account type together
         localStorage.setItem('active_loginid', targetLoginId);
         localStorage.setItem('active_account_type', accountType);
 
-        // 4. Use matching OAuth token for that account
         const account_list = JSON.parse(localStorage.getItem('accountsList') ?? '{}');
         const token = account_list[targetLoginId] || localStorage.getItem('authToken');
         if (token) {
             localStorage.setItem('authToken', token);
         }
 
-        // 5. Use the selected account's own balance (do not use cached balance from previous account)
         const rawTargetBal = (selected_account as any)?.balance;
         const targetBalance =
             typeof rawTargetBal === 'number'
                 ? rawTargetBal
                 : parseFloat(String(rawTargetBal || '0'));
 
-        // Update client_account_details in localStorage so balance persists on refresh
         try {
             const savedDetails: any[] = JSON.parse(localStorage.getItem('client_account_details') || '[]');
             const updated = savedDetails.map((acc: any) =>
@@ -196,10 +189,9 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
             );
             localStorage.setItem('client_account_details', JSON.stringify(updated));
         } catch {
-            // Ignore
+            // ignore
         }
 
-        // Update authData$ observable immediately so useApiBase & useActiveAccount switch synchronously
         setAuthData({
             loginid: targetLoginId,
             currency: targetCurrency,
@@ -208,12 +200,10 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
             account_list: accountList,
         } as any);
 
-        // Update Client MobX store synchronously
         client.setLoginId(targetLoginId);
         client.setCurrency(targetCurrency);
         client.setBalance((targetBalance ?? 0).toFixed(getDecimalPlaces(targetCurrency)));
 
-        // Ensure all_accounts_balance reflects the active switched account
         const existingAllBalance = client.all_accounts_balance;
         client.setAllAccountsBalance({
             ...(existingAllBalance ?? {}),
@@ -232,14 +222,12 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
             },
         } as any);
 
-        const isOAuth = Boolean(localStorage.getItem('deriv_oauth_access_token'));
+        const isOAuth = Boolean(getOAuthAccessToken());
         if (isOAuth) {
-            // 6. For OAuth users: Request a new balance for the selected account after the switch
-            const oauthToken = localStorage.getItem('deriv_oauth_access_token');
+            const oauthToken = getOAuthAccessToken();
             if (oauthToken) {
                 fetchAccounts(oauthToken).then(async (freshAccounts: any[]) => {
                     if (!Array.isArray(freshAccounts)) return;
-                    // Ensure user hasn't switched to another account in the meantime
                     if (localStorage.getItem('active_loginid') !== targetLoginId) return;
 
                     const freshParsed = freshAccounts.map(parseAccountDetails);
@@ -263,10 +251,8 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
             }
         }
 
-        // Reconnect api_base for the selected account (fetches new account's OTP socket if OAuth)
         await api_base?.init(true);
 
-        // Reset contract cache and refresh symbols for new account
         try {
             const ApiHelpers = (await import('@/external/bot-skeleton')).ApiHelpers;
             ApiHelpers?.instance?.contracts_for?.disposeCache?.();
