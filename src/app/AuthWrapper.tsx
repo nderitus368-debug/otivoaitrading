@@ -19,6 +19,49 @@ declare global {
     }
 }
 
+const initializeStoredSession = async () => {
+    const storedToken = localStorage.getItem('authToken');
+    const storedLoginId = localStorage.getItem('active_loginid');
+    const oauthToken = localStorage.getItem('deriv_oauth_access_token');
+
+    if (!storedToken || !storedLoginId || oauthToken) {
+        return;
+    }
+
+    try {
+        const savedAccounts = JSON.parse(localStorage.getItem('client_account_details') || '[]');
+        const accountMap: Record<string, string> = {};
+        const clientAccounts: Record<string, any> = {};
+
+        if (Array.isArray(savedAccounts) && savedAccounts.length > 0) {
+            savedAccounts.forEach((account: any) => {
+                const parsed = parseAccountDetails(account);
+                const loginid = parsed.loginid || account.loginid;
+                if (loginid) {
+                    accountMap[loginid] = parsed.token || storedToken;
+                    clientAccounts[loginid] = {
+                        loginid,
+                        token: parsed.token || storedToken,
+                        currency: parsed.currency,
+                        is_virtual: parsed.is_virtual,
+                        account_type: parsed.account_type,
+                    };
+                }
+            });
+        }
+
+        if (!accountMap[storedLoginId]) {
+            accountMap[storedLoginId] = storedToken;
+        }
+
+        localStorage.setItem('accountsList', JSON.stringify(accountMap));
+        localStorage.setItem('clientAccounts', JSON.stringify(clientAccounts));
+        await api_base.init(true);
+    } catch (error) {
+        console.warn('[Auth] Failed to initialize stored Deriv session:', error);
+    }
+};
+
 const setLocalStorageToken = async (
     loginInfo: URLUtils.LoginInfo[],
     paramsToDelete: string[],
@@ -82,6 +125,7 @@ const setLocalStorageToken = async (
                         if (filteredTokens.length) {
                             localStorage.setItem('authToken', filteredTokens[0].token);
                             localStorage.setItem('active_loginid', filteredTokens[0].loginid);
+                            await api_base.init(true);
                             return;
                         }
                     }
@@ -95,6 +139,7 @@ const setLocalStorageToken = async (
 
             localStorage.setItem('authToken', loginInfo[0].token);
             localStorage.setItem('active_loginid', loginInfo[0].loginid);
+            await api_base.init(true);
         } catch (error) {
             console.error('Error setting up login info:', error);
         }
@@ -170,7 +215,7 @@ export const AuthWrapper = () => {
                                     } as any);
 
                                     // Initialize authenticated engine connection
-                                    api_base?.init(true);
+                                    await api_base?.init(true);
                                 } else {
                                     localStorage.setItem('authToken', tokenData.access_token);
                                 }
@@ -247,6 +292,11 @@ export const AuthWrapper = () => {
                     }
                 } catch {
                     // Ignore parse error
+                }
+
+                const hasStoredAuth = Boolean(localStorage.getItem('authToken') && localStorage.getItem('active_loginid'));
+                if (hasStoredAuth) {
+                    await initializeStoredSession();
                 }
 
                 // Pass isOnline to setLocalStorageToken to handle offline mode properly
