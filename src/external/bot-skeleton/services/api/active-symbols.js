@@ -16,7 +16,14 @@ export default class ActiveSymbols {
     }
 
     async retrieveActiveSymbols(is_forced_update = false) {
-        await this.trading_times.initialise();
+        try {
+            await Promise.race([
+                this.trading_times.initialise(),
+                new Promise(resolve => setTimeout(resolve, 3000)),
+            ]);
+        } catch (e) {
+            console.warn('[active-symbols] trading_times initialise timeout/error:', e);
+        }
 
         if (!is_forced_update && this.is_initialised) {
             await this.init_promise;
@@ -33,6 +40,20 @@ export default class ActiveSymbols {
         }
 
         this.processed_symbols = this.processActiveSymbols();
+
+        if (typeof window !== 'undefined' && window.Blockly?.derivWorkspace) {
+            try {
+                const market_blocks = window.Blockly.derivWorkspace
+                    .getAllBlocks()
+                    .filter(b => b.type === 'trade_definition_market');
+                market_blocks.forEach(block => {
+                    const fake_create_event = new window.Blockly.Events.BlockCreate(block);
+                    window.Blockly.Events.fire(fake_create_event);
+                });
+            } catch (blockErr) {
+                console.warn('[active-symbols] Failed to refresh market blocks:', blockErr);
+            }
+        }
 
         // TODO: fix need to look into it as the method is not present
         this.trading_times.onMarketOpenCloseChanged = changes => {
@@ -55,8 +76,22 @@ export default class ActiveSymbols {
     }
 
     processActiveSymbols() {
-        return this.active_symbols.reduce((processed_symbols, symbol) => {
+        return this.active_symbols.reduce((processed_symbols, rawSymbol) => {
+            const symbol = {
+                ...rawSymbol,
+                symbol: rawSymbol.symbol || rawSymbol.underlying_symbol || '',
+                display_name: rawSymbol.display_name || rawSymbol.underlying_symbol_name || rawSymbol.symbol || '',
+                market: rawSymbol.market || 'synthetic_index',
+                market_display_name: rawSymbol.market_display_name || rawSymbol.market || 'Derived',
+                submarket: rawSymbol.submarket || 'random_index',
+                submarket_display_name: rawSymbol.submarket_display_name || rawSymbol.submarket || 'Continuous Indices',
+                pip: rawSymbol.pip || '0.001',
+                exchange_is_open: rawSymbol.exchange_is_open !== undefined ? rawSymbol.exchange_is_open : 1,
+                is_trading_suspended: rawSymbol.is_trading_suspended || 0,
+            };
+
             if (
+                !symbol.symbol ||
                 config().DISABLED_SYMBOLS.includes(symbol.symbol) ||
                 config().DISABLED_SUBMARKETS.includes(symbol.submarket)
             ) {
@@ -87,7 +122,7 @@ export default class ActiveSymbols {
                 symbols[symbol.symbol] = {
                     display_name: symbol.display_name,
                     pip_size: `${symbol.pip}`.length - 2,
-                    is_active: !symbol.is_trading_suspended && symbol.exchange_is_open,
+                    is_active: !symbol.is_trading_suspended && (symbol.exchange_is_open === 1 || symbol.exchange_is_open === true || symbol.exchange_is_open === undefined),
                 };
             }
 
@@ -280,9 +315,11 @@ export default class ActiveSymbols {
 
     isSymbolClosed(symbol_name) {
         return this.active_symbols.some(
-            active_symbol =>
-                active_symbol.symbol === symbol_name &&
-                (!active_symbol.exchange_is_open || active_symbol.is_trading_suspended)
+            active_symbol => {
+                const sym = active_symbol.symbol || active_symbol.underlying_symbol;
+                return sym === symbol_name &&
+                    (active_symbol.exchange_is_open === 0 || active_symbol.exchange_is_open === false || active_symbol.is_trading_suspended === 1);
+            }
         );
     }
 

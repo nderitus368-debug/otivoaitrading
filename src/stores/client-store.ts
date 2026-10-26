@@ -274,7 +274,12 @@ export default class ClientStore {
 
     getToken = () => {
         const accountList = JSON.parse(localStorage.getItem('accountsList') ?? '{}');
-        return accountList[this.loginid] ?? '';
+        const token =
+            accountList[this.loginid] ??
+            localStorage.getItem('authToken') ??
+            localStorage.getItem('deriv_oauth_access_token') ??
+            '';
+        return token;
     };
 
     setAccountStatus(status: GetAccountStatus | undefined) {

@@ -34,14 +34,16 @@ export const refreshAccessToken = async (): Promise<string | null> => {
 };
 
 export const getRedirectUri = () => {
-    // Must exactly match the registered Redirect URI in Deriv Dashboard
-    if (
-        window.location.hostname.includes('netlify.app') ||
-        window.location.hostname === 'otivoaitrading.vercel.app'
-    ) {
+    // Must exactly match the registered Redirect URI in Deriv Dashboard (case, protocol, no trailing slash)
+    const hostname = window.location.hostname;
+    if (hostname === 'otivoaitrading.vercel.app' || hostname.includes('vercel.app')) {
+        return 'https://otivoaitrading.vercel.app';
+    }
+    if (hostname.includes('netlify.app')) {
         return 'https://otivobotai.netlify.app';
     }
-    return `${window.location.origin}${window.location.pathname}`.replace(/\/$/, '');
+    // Localhost / custom origin: ensure no trailing slash
+    return window.location.origin.replace(/\/$/, '');
 };
 
 export const exchangeCodeForToken = async (code: string, verifier: string) => {
@@ -85,7 +87,8 @@ export const fetchAccounts = async (accessToken: string) => {
 
     const data = await res.json();
     if (data.error) throw new Error(data.error_description || 'Failed to fetch accounts');
-    return data.data; // List of accounts
+    const list = Array.isArray(data.data) ? data.data : Array.isArray(data) ? data : data.accounts || [];
+    return list;
 };
 
 export const fetchOtp = async (accessToken: string, accountId: string) => {
@@ -117,28 +120,33 @@ export const fetchOtp = async (accessToken: string, accountId: string) => {
     return data.data.url; // The authenticated WebSocket URL
 };
 
+function base64UrlEncode(buffer: ArrayBuffer | Uint8Array) {
+    return btoa(String.fromCharCode(...new Uint8Array(buffer)))
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '');
+}
+
+export const createPkce = async () => {
+    const verifierBytes = new Uint8Array(32);
+    window.crypto.getRandomValues(verifierBytes);
+    const code_verifier = base64UrlEncode(verifierBytes);
+    const digest = await window.crypto.subtle.digest(
+        'SHA-256',
+        new TextEncoder().encode(code_verifier)
+    );
+    const code_challenge = base64UrlEncode(digest);
+    return { code_verifier, code_challenge, code_challenge_method: 'S256' as const };
+};
+
+const generateState = () => {
+    const array = new Uint8Array(16);
+    window.crypto.getRandomValues(array);
+    return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+};
+
 export const useOauth2 = (options?: { handleLogout?: () => Promise<void>; client?: any }) => {
     const [isLoggingIn, setIsLoggingIn] = useState(false);
-
-    // 1. Helper to generate PKCE Code Verifier
-    const generateCodeVerifier = () => {
-        const array = new Uint8Array(64);
-        window.crypto.getRandomValues(array);
-        return Array.from(array)
-            .map(v => 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~'[v % 66])
-            .join('');
-    };
-
-    // 2. Helper to generate Code Challenge from Verifier
-    const generateCodeChallenge = async (verifier: string) => {
-        const encoder = new TextEncoder();
-        const data = encoder.encode(verifier);
-        const hash = await window.crypto.subtle.digest('SHA-256', data);
-        return btoa(String.fromCharCode(...new Uint8Array(hash)))
-            .replace(/\+/g, '-')
-            .replace(/\//g, '_')
-            .replace(/=+$/, '');
-    };
 
     const login = async () => {
         setIsLoggingIn(true);
@@ -148,24 +156,29 @@ export const useOauth2 = (options?: { handleLogout?: () => Promise<void>; client
         sessionStorage.removeItem('oauth_state');
         sessionStorage.removeItem('oauth_exchanging_code');
 
-        // 1. Generate PKCE values
-        const verifier = generateCodeVerifier();
-        const challenge = await generateCodeChallenge(verifier);
-        const state = Math.random().toString(36).substring(2);
+        // 1. Generate PKCE values using official Deriv standard
+        const { code_verifier, code_challenge, code_challenge_method } = await createPkce();
+        // Deriv requires state to be at least 8 characters long with high entropy
+        const state = generateState();
 
         // 2. Store verifier and state for the callback step
-        sessionStorage.setItem('pkce_code_verifier', verifier);
+        sessionStorage.setItem('pkce_code_verifier', code_verifier);
         sessionStorage.setItem('oauth_state', state);
 
         // 3. Construct Auth URL cleanly
+        const redirectUri = getRedirectUri();
         const authUrl = new URL('https://auth.deriv.com/oauth2/auth');
         authUrl.searchParams.set('response_type', 'code');
         authUrl.searchParams.set('client_id', NEW_CLIENT_ID);
-        authUrl.searchParams.set('redirect_uri', getRedirectUri());
+        authUrl.searchParams.set('redirect_uri', redirectUri);
         authUrl.searchParams.set('scope', 'trade');
         authUrl.searchParams.set('state', state);
-        authUrl.searchParams.set('code_challenge', challenge);
-        authUrl.searchParams.set('code_challenge_method', 'S256');
+        authUrl.searchParams.set('code_challenge', code_challenge);
+        authUrl.searchParams.set('code_challenge_method', code_challenge_method);
+
+        console.log('[OAuth2] Initiating login with URL:', authUrl.toString());
+        console.log('[OAuth2] Client ID:', NEW_CLIENT_ID);
+        console.log('[OAuth2] Redirect URI:', redirectUri);
 
         window.location.href = authUrl.toString();
     };

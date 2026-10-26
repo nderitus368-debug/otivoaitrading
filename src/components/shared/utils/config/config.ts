@@ -7,15 +7,18 @@ export const APP_IDS = {
     STAGING: 29934,
     STAGING_BE: 29934,
     STAGING_ME: 29934,
-    PRODUCTION: 65555,
+    PRODUCTION: 69546,
     PRODUCTION_BE: 65556,
     PRODUCTION_ME: 65557,
+    OTIVO: 69546,
 };
 
 export const livechat_license_id = 12049137;
 export const livechat_client_id = '66aa088aad5a414484c1fd1fa8a5ace7';
 
 export const domain_app_ids = {
+    'otivoaitrading.vercel.app': APP_IDS.OTIVO,
+    'otivobotai.netlify.app': APP_IDS.OTIVO,
     'master.bot-standalone.pages.dev': APP_IDS.TMP_STAGING,
     'staging-dbot.deriv.com': APP_IDS.STAGING,
     'staging-dbot.deriv.be': APP_IDS.STAGING_BE,
@@ -81,10 +84,13 @@ export const getDefaultAppIdAndUrl = () => {
 export const getAppId = () => {
     let app_id = null;
     const config_app_id = window.localStorage.getItem('config.app_id');
+    const isOAuth = typeof window !== 'undefined' && Boolean(window.localStorage.getItem('deriv_oauth_access_token'));
     const current_domain = getCurrentProductionDomain() ?? '';
 
     if (config_app_id) {
         app_id = config_app_id;
+    } else if (isOAuth) {
+        app_id = APP_IDS.PRODUCTION;
     } else if (isStaging()) {
         app_id = APP_IDS.STAGING;
     } else if (isTestLink()) {

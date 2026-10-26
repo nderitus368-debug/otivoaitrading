@@ -167,7 +167,11 @@ window.Blockly.JavaScript.javascriptGenerator.forBlock.trade_definition = block 
     }
 
     const { loginid } = client;
-    const account = client.getToken(loginid);
+    const account =
+        client.getToken(loginid) ||
+        localStorage.getItem('authToken') ||
+        localStorage.getItem('deriv_oauth_access_token') ||
+        'oauth_authorized';
     const market_block = block.getChildByType('trade_definition_market');
     const trade_type_block = block.getChildByType('trade_definition_tradetype');
     const contract_type_block = block.getChildByType('trade_definition_contracttype');

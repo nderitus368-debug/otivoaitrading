@@ -77,23 +77,90 @@ window.Blockly.Blocks.trade_definition_market = {
                 should_pretend_empty: true,
                 event_group: event.group,
             });
+
+            const current_market = market_dropdown?.getValue();
+            if (current_market && current_market !== 'not_available') {
+                const submarket_options = active_symbols.getSubmarketDropdownOptions(current_market);
+                submarket_dropdown?.updateOptions(submarket_options, {
+                    default_value: submarket,
+                    should_pretend_empty: true,
+                    event_group: event.group,
+                });
+
+                const current_submarket = submarket_dropdown?.getValue();
+                if (current_submarket && current_submarket !== 'not_available') {
+                    const symbol_options = active_symbols.getSymbolDropdownOptions(current_submarket);
+                    symbol_dropdown?.updateOptions(symbol_options, {
+                        default_value: symbol,
+                        should_pretend_empty: true,
+                        event_group: event.group,
+                    });
+
+                    const current_symbol = symbol_dropdown?.getValue();
+                    if (current_symbol && current_symbol !== 'not_available') {
+                        DBotStore?.instance?.dashboard?.setBotBuilderSymbol(current_symbol);
+                        const fake_symbol_event = new window.Blockly.Events.BlockChange(
+                            this,
+                            'field',
+                            'SYMBOL_LIST',
+                            null,
+                            current_symbol
+                        );
+                        fake_symbol_event.recordUndo = false;
+                        window.Blockly.Events.fire(fake_symbol_event);
+                    }
+                }
+            }
         };
 
         if (event.type === window.Blockly.Events.BLOCK_CREATE && event.ids.includes(this.id)) {
             populateMarketDropdown();
         } else if (event.type === window.Blockly.Events.BLOCK_CHANGE && event.blockId === this.id) {
             if (event.name === 'MARKET_LIST') {
-                submarket_dropdown.updateOptions(active_symbols.getSubmarketDropdownOptions(market), {
+                const new_market = market_dropdown.getValue();
+                const submarket_options = active_symbols.getSubmarketDropdownOptions(new_market);
+                submarket_dropdown.updateOptions(submarket_options, {
                     default_value: submarket,
                     should_pretend_empty: true,
                     event_group: event.group,
                 });
-            } else if (event.name === 'SUBMARKET_LIST') {
-                symbol_dropdown.updateOptions(active_symbols.getSymbolDropdownOptions(submarket), {
+                const new_submarket = submarket_dropdown.getValue();
+                const symbol_options = active_symbols.getSymbolDropdownOptions(new_submarket);
+                symbol_dropdown.updateOptions(symbol_options, {
                     default_value: symbol,
                     should_pretend_empty: true,
                     event_group: event.group,
                 });
+                const new_symbol = symbol_dropdown.getValue();
+                DBotStore?.instance?.dashboard?.setBotBuilderSymbol(new_symbol);
+                const fake_symbol_event = new window.Blockly.Events.BlockChange(
+                    this,
+                    'field',
+                    'SYMBOL_LIST',
+                    null,
+                    new_symbol
+                );
+                fake_symbol_event.recordUndo = false;
+                window.Blockly.Events.fire(fake_symbol_event);
+            } else if (event.name === 'SUBMARKET_LIST') {
+                const new_submarket = submarket_dropdown.getValue();
+                const symbol_options = active_symbols.getSymbolDropdownOptions(new_submarket);
+                symbol_dropdown.updateOptions(symbol_options, {
+                    default_value: symbol,
+                    should_pretend_empty: true,
+                    event_group: event.group,
+                });
+                const new_symbol = symbol_dropdown.getValue();
+                DBotStore?.instance?.dashboard?.setBotBuilderSymbol(new_symbol);
+                const fake_symbol_event = new window.Blockly.Events.BlockChange(
+                    this,
+                    'field',
+                    'SYMBOL_LIST',
+                    null,
+                    new_symbol
+                );
+                fake_symbol_event.recordUndo = false;
+                window.Blockly.Events.fire(fake_symbol_event);
             } else if (event.name === 'SYMBOL_LIST') {
                 const new_symbol = symbol_dropdown.getValue();
                 DBotStore.instance.dashboard.setBotBuilderSymbol(new_symbol);

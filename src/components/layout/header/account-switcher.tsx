@@ -5,9 +5,11 @@ import { CurrencyIcon } from '@/components/currency/currency-icon';
 import { addComma, getDecimalPlaces } from '@/components/shared';
 import Popover from '@/components/shared_ui/popover';
 import { api_base } from '@/external/bot-skeleton';
-import { useOauth2 } from '@/hooks/auth/useOauth2';
+import { setAuthData } from '@/external/bot-skeleton/services/api/observables/connection-status-stream';
+import { fetchAccounts, useOauth2 } from '@/hooks/auth/useOauth2';
 import { useApiBase } from '@/hooks/useApiBase';
 import { useStore } from '@/hooks/useStore';
+import { isAccountDemo, parseAccountDetails } from '@/utils/auth-utils';
 import { waitForDomElement } from '@/utils/dom-observer';
 import { Analytics } from '@deriv-com/analytics';
 import { localize } from '@deriv-com/translations';
@@ -97,23 +99,27 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
 
     const modifiedAccountList = useMemo(() => {
         return accountList?.map(account => {
+            const isVirtual = isAccountDemo(account);
+            const currentAccBal =
+                client.all_accounts_balance?.accounts?.[account?.loginid]?.balance ??
+                (typeof (account as any).balance === 'number'
+                    ? (account as any).balance
+                    : parseFloat((account as any).balance || '0'));
             return {
                 ...account,
-                balance: addComma(
-                    client.all_accounts_balance?.accounts?.[account?.loginid]?.balance?.toFixed(
-                        getDecimalPlaces(account.currency)
-                    ) ?? '0'
-                ),
-                currencyLabel: account?.is_virtual
+                is_virtual: isVirtual ? 1 : 0,
+                isVirtual,
+                account_type: isVirtual ? 'demo' : 'real',
+                balance: addComma((currentAccBal ?? 0).toFixed(getDecimalPlaces(account.currency))),
+                currencyLabel: isVirtual
                     ? tabs_labels.demo
                     : (client.website_status?.currencies_config?.[account?.currency]?.name ?? account?.currency),
                 icon: (
                     <CurrencyIcon
                         currency={account?.currency?.toLowerCase()}
-                        isVirtual={Boolean(account?.is_virtual)}
+                        isVirtual={isVirtual}
                     />
                 ),
-                isVirtual: Boolean(account?.is_virtual),
                 isActive: account?.loginid === activeAccount?.loginid,
             };
         });
@@ -123,39 +129,159 @@ const AccountSwitcher = observer(({ activeAccount }: TAccountSwitcher) => {
         client.website_status?.currencies_config,
         activeAccount?.loginid,
     ]);
+
     const modifiedCRAccountList = useMemo(() => {
-        return modifiedAccountList?.filter(account => account?.loginid?.includes('CR')) ?? [];
+        return (
+            modifiedAccountList?.filter(
+                account => !isAccountDemo(account) && (account?.loginid?.includes('CR') || account?.loginid?.startsWith('ROT') || !account?.loginid?.includes('MF'))
+            ) ?? []
+        );
     }, [modifiedAccountList]);
 
     const modifiedMFAccountList = useMemo(() => {
-        return modifiedAccountList?.filter(account => account?.loginid?.includes('MF')) ?? [];
+        return (
+            modifiedAccountList?.filter(
+                account => !isAccountDemo(account) && account?.loginid?.includes('MF')
+            ) ?? []
+        );
     }, [modifiedAccountList]);
 
     const modifiedVRTCRAccountList = useMemo(() => {
-        return modifiedAccountList?.filter(account => account?.loginid?.includes('VRT')) ?? [];
+        return (
+            modifiedAccountList?.filter(isAccountDemo) ?? []
+        );
     }, [modifiedAccountList]);
 
-    const switchAccount = async (loginId: number) => {
-        if (loginId.toString() === activeAccount?.loginid) return;
-        const account_list = JSON.parse(localStorage.getItem('accountsList') ?? '{}');
-        const token = account_list[loginId];
-        if (!token) return;
-        localStorage.setItem('authToken', token);
-        localStorage.setItem('active_loginid', loginId.toString());
-        const account_type =
-            loginId
-                .toString()
-                .match(/[a-zA-Z]+/g)
-                ?.join('') || '';
+    const switchAccount = async (loginId: string | number) => {
+        const targetLoginId = String(loginId);
+        if (targetLoginId === activeAccount?.loginid) return;
 
-        Analytics.setAttributes({
-            account_type,
-        });
+        // 1. Stop old balance subscription before switching accounts
+        api_base.unsubscribeAllSubscriptions();
+
+        // 2. Locate target account
+        const selected_account =
+            accountList?.find(acc => acc.loginid === targetLoginId) ||
+            modifiedAccountList?.find(acc => acc.loginid === targetLoginId);
+
+        const isVirtual = isAccountDemo(selected_account);
+        const accountType = isVirtual ? 'demo' : 'real';
+        const targetCurrency = selected_account?.currency || 'USD';
+
+        // 3. Store selected Deriv account ID and account type together
+        localStorage.setItem('active_loginid', targetLoginId);
+        localStorage.setItem('active_account_type', accountType);
+
+        // 4. Use matching OAuth token for that account
+        const account_list = JSON.parse(localStorage.getItem('accountsList') ?? '{}');
+        const token = account_list[targetLoginId] || localStorage.getItem('authToken');
+        if (token) {
+            localStorage.setItem('authToken', token);
+        }
+
+        // 5. Use the selected account's own balance (do not use cached balance from previous account)
+        const rawTargetBal = (selected_account as any)?.balance;
+        const targetBalance =
+            typeof rawTargetBal === 'number'
+                ? rawTargetBal
+                : parseFloat(String(rawTargetBal || '0'));
+
+        // Update client_account_details in localStorage so balance persists on refresh
+        try {
+            const savedDetails: any[] = JSON.parse(localStorage.getItem('client_account_details') || '[]');
+            const updated = savedDetails.map((acc: any) =>
+                acc.loginid === targetLoginId
+                    ? { ...acc, balance: targetBalance, currency: targetCurrency, is_virtual: isVirtual ? 1 : 0, account_type: accountType }
+                    : acc
+            );
+            localStorage.setItem('client_account_details', JSON.stringify(updated));
+        } catch {
+            // Ignore
+        }
+
+        // Update authData$ observable immediately so useApiBase & useActiveAccount switch synchronously
+        setAuthData({
+            loginid: targetLoginId,
+            currency: targetCurrency,
+            balance: targetBalance,
+            is_virtual: isVirtual ? 1 : 0,
+            account_list: accountList,
+        } as any);
+
+        // Update Client MobX store synchronously
+        client.setLoginId(targetLoginId);
+        client.setCurrency(targetCurrency);
+        client.setBalance((targetBalance ?? 0).toFixed(getDecimalPlaces(targetCurrency)));
+
+        // Ensure all_accounts_balance reflects the active switched account
+        const existingAllBalance = client.all_accounts_balance;
+        client.setAllAccountsBalance({
+            ...(existingAllBalance ?? {}),
+            balance: targetBalance,
+            loginid: targetLoginId,
+            accounts: {
+                ...(existingAllBalance?.accounts ?? {}),
+                [targetLoginId]: {
+                    ...(existingAllBalance?.accounts?.[targetLoginId] ?? {}),
+                    balance: targetBalance,
+                    converted_amount: targetBalance,
+                    currency: targetCurrency,
+                    demo_account: isVirtual ? 1 : 0,
+                    type: 'deriv',
+                },
+            },
+        } as any);
+
+        const isOAuth = Boolean(localStorage.getItem('deriv_oauth_access_token'));
+        if (isOAuth) {
+            // 6. For OAuth users: Request a new balance for the selected account after the switch
+            const oauthToken = localStorage.getItem('deriv_oauth_access_token');
+            if (oauthToken) {
+                fetchAccounts(oauthToken).then(async (freshAccounts: any[]) => {
+                    if (!Array.isArray(freshAccounts)) return;
+                    // Ensure user hasn't switched to another account in the meantime
+                    if (localStorage.getItem('active_loginid') !== targetLoginId) return;
+
+                    const freshParsed = freshAccounts.map(parseAccountDetails);
+                    const matched = freshParsed.find((a: any) => a.loginid === targetLoginId);
+                    if (matched) {
+                        localStorage.setItem('client_account_details', JSON.stringify(freshParsed));
+                        setAccountList(freshParsed as any);
+                        setAuthData({
+                            loginid: matched.loginid,
+                            currency: matched.currency,
+                            balance: matched.balance,
+                            is_virtual: matched.is_virtual,
+                            account_list: freshParsed,
+                        } as any);
+                        client.setBalance(matched.balance.toFixed(getDecimalPlaces(matched.currency)));
+                        client.setCurrency(matched.currency);
+                    }
+                }).catch(err => {
+                    console.warn('[AccountSwitcher] Failed to refresh account balance:', err);
+                });
+            }
+        }
+
+        // Reconnect api_base for the selected account (fetches new account's OTP socket if OAuth)
         await api_base?.init(true);
+
+        // Reset contract cache and refresh symbols for new account
+        try {
+            const ApiHelpers = (await import('@/external/bot-skeleton')).ApiHelpers;
+            ApiHelpers?.instance?.contracts_for?.disposeCache?.();
+            if (ApiHelpers?.instance?.active_symbols) {
+                await ApiHelpers.instance.active_symbols.retrieveActiveSymbols(true);
+            }
+        } catch {
+            // Non-critical if workspace not mounted yet
+        }
+
+        const account_type = targetLoginId.match(/[a-zA-Z]+/g)?.join('') || '';
+        Analytics.setAttributes({ account_type });
+
         const search_params = new URLSearchParams(window.location.search);
-        const selected_account = modifiedAccountList.find(acc => acc.loginid === loginId.toString());
-        if (!selected_account) return;
-        const account_param = selected_account.is_virtual ? 'demo' : selected_account.currency;
+        const account_param = isVirtual ? 'demo' : targetCurrency;
         search_params.set('account', account_param);
         sessionStorage.setItem('query_param_currency', account_param);
         window.history.pushState({}, '', `${window.location.pathname}?${search_params.toString()}`);

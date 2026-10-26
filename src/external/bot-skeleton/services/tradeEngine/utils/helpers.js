@@ -20,6 +20,7 @@ export const tradeOptionToProposal = (trade_option, purchase_reference) =>
             },
             proposal: 1,
             symbol: trade_option.symbol,
+            underlying_symbol: trade_option.symbol,
         };
 
         const is_digit_prediction = ['DIGITMATCH', 'DIGITDIFF', 'DIGITOVER', 'DIGITUNDER'].includes(type);

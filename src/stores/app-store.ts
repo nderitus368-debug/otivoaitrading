@@ -181,6 +181,11 @@ export default class AppStore {
         blockly_store.setContainerSize();
         blockly_store.setLoading(false);
 
+        // Populate active symbols into workspace blocks
+        if (ApiHelpers?.instance?.active_symbols) {
+            ApiHelpers.instance.active_symbols.retrieveActiveSymbols(true).catch(() => {});
+        }
+
         this.registerCurrencyReaction.call(this);
         this.registerOnAccountSwitch.call(this);
         this.registerLandingCompanyChangeReaction.call(this);

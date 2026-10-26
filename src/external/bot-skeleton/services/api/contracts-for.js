@@ -1,5 +1,6 @@
 import { config } from '../../constants/config';
 import PendingPromise from '../../utils/pending-promise';
+import { observer as globalObserver } from '../../utils/observer';
 import { api_base } from './api-base';
 
 export default class ContractsFor {
@@ -193,13 +194,72 @@ export default class ContractsFor {
         const getContractsForFromApi = async () => {
             if (this.retrieving_contracts_for[symbol]) {
                 await this.retrieving_contracts_for[symbol];
-                return this.contracts_for[symbol].contracts;
+                return this.contracts_for[symbol]?.contracts || [];
             }
 
             this.retrieving_contracts_for[symbol] = new PendingPromise();
-            const response = await api_base.api.send({ contracts_for: symbol });
+            let response = null;
 
-            if (response.error) {
+            try {
+                response = await api_base.api.send({ contracts_for: symbol, underlying_symbol: symbol });
+            } catch (sendErr) {
+                console.warn('[contracts-for] api.send error:', sendErr);
+            }
+
+            // Fallback: If primary socket returned error or failed, query public options WS directly
+            if (!response?.contracts_for?.available?.length) {
+                if (response?.error) {
+                    globalObserver.emit('ui.log.error', response.error.message || `Contracts unavailable for ${symbol}`);
+                }
+                try {
+                    response = await new Promise((resolve, reject) => {
+                        const wsUrl = 'wss://api.derivws.com/trading/v1/options/ws/public';
+                        const socket = new WebSocket(wsUrl);
+                        const timer = setTimeout(() => {
+                            socket.close();
+                            reject(new Error('Public contracts_for timeout'));
+                        }, 5000);
+
+                        socket.onopen = () => {
+                            socket.send(JSON.stringify({ contracts_for: symbol, underlying_symbol: symbol }));
+                        };
+
+                        socket.onmessage = (event) => {
+                            try {
+                                const data = JSON.parse(event.data);
+                                if (data.contracts_for) {
+                                    clearTimeout(timer);
+                                    socket.close();
+                                    resolve(data);
+                                } else if (data.error) {
+                                    clearTimeout(timer);
+                                    socket.close();
+                                    reject(new Error(data.error.message || 'contracts_for error'));
+                                }
+                            } catch (e) {
+                                clearTimeout(timer);
+                                socket.close();
+                                reject(e);
+                            }
+                        };
+
+                        socket.onerror = (err) => {
+                            clearTimeout(timer);
+                            socket.close();
+                            reject(err);
+                        };
+                    });
+                } catch (fallbackErr) {
+                    console.warn('[contracts-for] Public socket contracts_for fallback error:', fallbackErr);
+                }
+            }
+
+            if (!response?.contracts_for?.available) {
+                if (response?.error) {
+                    globalObserver.emit('ui.log.error', response.error.message || `Failed to fetch contracts for ${symbol}`);
+                }
+                this.retrieving_contracts_for[symbol]?.resolve?.();
+                delete this.retrieving_contracts_for[symbol];
                 return [];
             }
 

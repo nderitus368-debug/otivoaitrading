@@ -68,22 +68,38 @@ const CoreStoreProvider: React.FC<{ children: React.ReactNode }> = observer(({ c
             const balance = authData.balance;
             client.setCurrency(currency);
             client.setBalance(balance.toFixed(getDecimalPlaces(currency)));
+
+            const accountsMap: Record<string, any> = {};
+            if (Array.isArray(authData.account_list) && authData.account_list.length > 0) {
+                authData.account_list.forEach((acc: any) => {
+                    const accBal = typeof acc.balance === 'number' ? acc.balance : (acc.loginid === loginid ? balance : 0);
+                    const accCur = acc.currency || currency;
+                    accountsMap[acc.loginid] = {
+                        balance: accBal,
+                        converted_amount: accBal,
+                        currency: accCur,
+                        demo_account: acc.is_virtual ?? 0,
+                        type: 'deriv',
+                    };
+                });
+            } else {
+                accountsMap[loginid] = {
+                    balance,
+                    converted_amount: balance,
+                    currency,
+                    demo_account: authData.is_virtual ?? 0,
+                    type: 'deriv',
+                };
+            }
+
             client.setAllAccountsBalance({
                 balance,
                 loginid,
-                accounts: {
-                    [loginid]: {
-                        balance,
-                        converted_amount: balance,
-                        currency,
-                        demo_account: authData.is_virtual ?? 0,
-                        type: 'deriv',
-                    },
-                },
+                accounts: accountsMap,
             } as Balance);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [authData?.loginid, authData?.currency, authData?.balance]);
+    }, [authData?.loginid, authData?.currency, authData?.balance, authData?.account_list]);
 
     // Keep real-time balance updates via the balance subscription stream.
     // Use activeLoginid directly (from authData$ observable) instead of activeAccount?.loginid
@@ -178,10 +194,12 @@ const CoreStoreProvider: React.FC<{ children: React.ReactNode }> = observer(({ c
             const data = res.data as TSocketResponseData<'balance'>;
             const { msg_type, error } = data;
 
+            const isOAuth = Boolean(localStorage.getItem('deriv_oauth_access_token'));
             if (
-                error?.code === 'AuthorizationRequired' ||
-                error?.code === 'DisabledClient' ||
-                error?.code === 'InvalidToken'
+                !isOAuth &&
+                (error?.code === 'AuthorizationRequired' ||
+                    error?.code === 'DisabledClient' ||
+                    error?.code === 'InvalidToken')
             ) {
                 await oAuthLogout();
             }
@@ -240,16 +258,19 @@ const CoreStoreProvider: React.FC<{ children: React.ReactNode }> = observer(({ c
     useEffect(() => {
         if (!isAuthorizing && isAuthorized && !accountInitialization.current && client) {
             accountInitialization.current = true;
-            api_base.api.getSettings().then((settingRes: TSocketResponseData<'get_settings'>) => {
-                client?.setAccountSettings(settingRes.get_settings);
+            // Mark landing company as loaded so app loading doesn't hang
+            client?.setLandingCompany({} as unknown as TLandingCompany);
+
+            api_base.api?.getSettings?.()?.then((settingRes: TSocketResponseData<'get_settings'>) => {
+                client?.setAccountSettings(settingRes?.get_settings);
                 const client_information: TClientInformation = {
                     loginid: activeAccount?.loginid,
-                    email: settingRes.get_settings?.email,
+                    email: settingRes?.get_settings?.email,
                     currency: client?.currency,
-                    residence: settingRes.get_settings?.residence,
-                    first_name: settingRes.get_settings?.first_name,
-                    last_name: settingRes.get_settings?.last_name,
-                    preferred_language: settingRes.get_settings?.preferred_language,
+                    residence: settingRes?.get_settings?.residence,
+                    first_name: settingRes?.get_settings?.first_name,
+                    last_name: settingRes?.get_settings?.last_name,
+                    preferred_language: settingRes?.get_settings?.preferred_language,
                     user_id: ((api_base.account_info as any)?.user_id as number) || activeLoginid,
                     landing_company_shortcode: activeAccount?.landing_company_name,
                 };
@@ -259,17 +280,20 @@ const CoreStoreProvider: React.FC<{ children: React.ReactNode }> = observer(({ c
                 });
 
                 api_base.api
-                    .landingCompany({
-                        landing_company: settingRes.get_settings?.country_code,
+                    ?.landingCompany?.({
+                        landing_company: settingRes?.get_settings?.country_code,
                     })
-                    .then((res: TSocketResponseData<'landing_company'>) => {
-                        client?.setLandingCompany(res.landing_company as unknown as TLandingCompany);
-                    });
-            });
+                    ?.then((res: TSocketResponseData<'landing_company'>) => {
+                        if (res?.landing_company) {
+                            client?.setLandingCompany(res.landing_company as unknown as TLandingCompany);
+                        }
+                    })
+                    ?.catch(() => {});
+            })?.catch(() => {});
 
-            api_base.api.getAccountStatus().then((res: TSocketResponseData<'get_account_status'>) => {
-                client?.setAccountStatus(res.get_account_status);
-            });
+            api_base.api?.getAccountStatus?.()?.then((res: TSocketResponseData<'get_account_status'>) => {
+                client?.setAccountStatus(res?.get_account_status);
+            })?.catch(() => {});
         }
     }, [isAuthorizing, isAuthorized, client]);
 

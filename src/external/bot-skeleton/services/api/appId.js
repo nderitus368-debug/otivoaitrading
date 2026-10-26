@@ -4,10 +4,22 @@ import DerivAPIBasic from '@deriv/deriv-api/dist/DerivAPIBasic';
 import { getInitialLanguage } from '@deriv-com/translations';
 import APIMiddleware from './api-middleware';
 
-export const generateDerivApiInstance = () => {
-    const cleanedServer = getSocketURL().replace(/[^a-zA-Z0-9.]/g, '');
-    const cleanedAppId = getAppId()?.replace?.(/[^a-zA-Z0-9]/g, '') ?? getAppId();
-    const socket_url = `wss://${cleanedServer}/websockets/v3?app_id=${cleanedAppId}&l=${getInitialLanguage()}&brand=${website_name.toLowerCase()}`;
+export const PUBLIC_OPTIONS_WS_URL = 'wss://api.derivws.com/trading/v1/options/ws/public';
+
+export const generateDerivApiInstance = (customSocketUrl = null) => {
+    let socket_url;
+    if (customSocketUrl) {
+        socket_url = customSocketUrl;
+    } else {
+        const isOAuth = typeof window !== 'undefined' && Boolean(window.localStorage?.getItem('deriv_oauth_access_token'));
+        if (isOAuth) {
+            socket_url = PUBLIC_OPTIONS_WS_URL;
+        } else {
+            const cleanedServer = getSocketURL().replace(/[^a-zA-Z0-9.]/g, '');
+            const cleanedAppId = getAppId()?.replace?.(/[^a-zA-Z0-9]/g, '') ?? getAppId();
+            socket_url = `wss://${cleanedServer}/websockets/v3?app_id=${cleanedAppId}&l=${getInitialLanguage()}&brand=${website_name.toLowerCase()}`;
+        }
+    }
     const deriv_socket = new WebSocket(socket_url);
     const deriv_api = new DerivAPIBasic({
         connection: deriv_socket,

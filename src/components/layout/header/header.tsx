@@ -26,9 +26,9 @@ const AppHeader = observer(({ isAuthenticating }: TAppHeaderProps) => {
     const { data: activeAccount } = useActiveAccount({ allBalanceData: client?.all_accounts_balance });
 
     const renderAccountSection = useCallback(() => {
-        if (isAuthenticating || isAuthorizing) {
+        if (isAuthenticating && !activeAccount) {
             return <AccountsInfoLoader isLoggedIn isMobile={!isDesktop} speed={3} />;
-        } else if (activeLoginid) {
+        } else if (activeLoginid || activeAccount) {
             return (
                 <>
                     <AccountSwitcher activeAccount={activeAccount} />
@@ -37,7 +37,7 @@ const AppHeader = observer(({ isAuthenticating }: TAppHeaderProps) => {
         } else {
             return <ApiTokenConnector />;
         }
-    }, [isAuthenticating, isAuthorizing, isDesktop, activeLoginid, activeAccount]);
+    }, [isAuthenticating, isDesktop, activeLoginid, activeAccount]);
 
     if (client?.should_hide_header) return null;
 

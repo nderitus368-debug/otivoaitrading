@@ -1,11 +1,13 @@
 import React from 'react';
 import Cookies from 'js-cookie';
 import ChunkLoader from '@/components/loader/chunk-loader';
+import { api_base } from '@/external/bot-skeleton';
+import { setAccountList, setAuthData } from '@/external/bot-skeleton/services/api/observables/connection-status-stream';
 import { generateDerivApiInstance } from '@/external/bot-skeleton/services/api/appId';
 import { observer as globalObserver } from '@/external/bot-skeleton/utils/observer';
 import { exchangeCodeForToken, fetchAccounts } from '@/hooks/auth/useOauth2';
 import { useOfflineDetection } from '@/hooks/useOfflineDetection';
-import { clearAuthData } from '@/utils/auth-utils';
+import { clearAuthData, parseAccountDetails } from '@/utils/auth-utils';
 import { localize } from '@deriv-com/translations';
 import { URLUtils } from '@deriv-com/utils';
 import App from './App';
@@ -130,43 +132,51 @@ export const AuthWrapper = () => {
                                     const accountsList: Record<string, string> = {};
                                     const clientAccounts: Record<string, any> = {};
 
-                                    accounts.forEach((acc: any) => {
-                                        const id = acc.account_id || acc.id || acc.loginid;
-                                        const tok = acc.token || tokenData.access_token;
-                                        accountsList[id] = tok;
-                                        clientAccounts[id] = {
-                                            loginid: id,
-                                            token: tok,
-                                            currency: acc.currency || 'USD',
-                                            is_virtual: acc.is_virtual ? 1 : 0,
+                                    const formattedAccountList = accounts.map(parseAccountDetails);
+
+                                    formattedAccountList.forEach((acc: any) => {
+                                        accountsList[acc.loginid] = tokenData.access_token;
+                                        clientAccounts[acc.loginid] = {
+                                            loginid: acc.loginid,
+                                            token: tokenData.access_token,
+                                            currency: acc.currency,
+                                            is_virtual: acc.is_virtual,
+                                            account_type: acc.account_type,
                                         };
                                     });
 
-                                    const activeId =
-                                        accounts[0].account_id || accounts[0].id || accounts[0].loginid;
+                                    const savedActiveId = localStorage.getItem('active_loginid');
+                                    const activeAccount =
+                                        (savedActiveId && formattedAccountList.find((a: any) => a.loginid === savedActiveId)) ||
+                                        formattedAccountList.find((a: any) => a.is_virtual === 0) ||
+                                        formattedAccountList[0];
+                                    const activeId = activeAccount.loginid;
                                     localStorage.setItem('accountsList', JSON.stringify(accountsList));
                                     localStorage.setItem('clientAccounts', JSON.stringify(clientAccounts));
+                                    localStorage.setItem('client_account_details', JSON.stringify(formattedAccountList));
                                     localStorage.setItem('authToken', accountsList[activeId]);
                                     localStorage.setItem('active_loginid', activeId);
+                                    localStorage.setItem('active_account_type', activeAccount.account_type);
+                                    Cookies.set('logged_state', 'true');
+
+                                    // Pre-set observables so UI is immediately ready
+                                    setAccountList(formattedAccountList as any);
+                                    setAuthData({
+                                        loginid: activeId,
+                                        currency: activeAccount.currency,
+                                        balance: activeAccount.balance,
+                                        is_virtual: activeAccount.is_virtual,
+                                        account_list: formattedAccountList,
+                                    } as any);
+
+                                    // Initialize authenticated engine connection
+                                    api_base?.init(true);
                                 } else {
                                     localStorage.setItem('authToken', tokenData.access_token);
                                 }
                             } catch (fetchErr) {
                                 console.warn('[Auth] Failed to fetch accounts via options API:', fetchErr);
                                 localStorage.setItem('authToken', tokenData.access_token);
-                            }
-
-                            try {
-                                const api = await generateDerivApiInstance();
-                                if (api) {
-                                    const activeToken = localStorage.getItem('authToken');
-                                    if (activeToken) {
-                                        await api.authorize(activeToken);
-                                    }
-                                    api.disconnect();
-                                }
-                            } catch (apiErr) {
-                                console.warn('[Auth] WebSocket authorization after PKCE exchange failed:', apiErr);
                             }
 
                             urlParams.delete('code');
@@ -183,6 +193,60 @@ export const AuthWrapper = () => {
                         sessionStorage.removeItem('pkce_code_verifier');
                         sessionStorage.removeItem('oauth_state');
                     }
+                }
+
+                // Pre-seed saved account observables if available from previous OAuth session
+                // Also try to refresh balances from Deriv REST API in the background
+                try {
+                    const rawSaved = JSON.parse(localStorage.getItem('client_account_details') || '[]');
+                    if (Array.isArray(rawSaved) && rawSaved.length > 0) {
+                        // Re-sanitize saved details to immediately fix any previously incorrect is_virtual flags
+                        const savedDetails = rawSaved.map(parseAccountDetails);
+                        localStorage.setItem('client_account_details', JSON.stringify(savedDetails));
+
+                        const activeId = localStorage.getItem('active_loginid') || savedDetails[0]?.loginid;
+                        const activeAcc = savedDetails.find((acc: any) => acc.loginid === activeId) || savedDetails[0];
+                        if (activeAcc) {
+                            localStorage.setItem('active_loginid', activeAcc.loginid);
+                            localStorage.setItem('active_account_type', activeAcc.account_type);
+                            // Immediately seed observables from sanitized saved data so UI shows accurate balance right away
+                            setAccountList(savedDetails);
+                            setAuthData({
+                                loginid: activeAcc.loginid,
+                                currency: activeAcc.currency,
+                                balance: typeof activeAcc.balance === 'number' ? activeAcc.balance : 0,
+                                is_virtual: activeAcc.is_virtual,
+                                account_list: savedDetails,
+                            } as any);
+
+                            // Then refresh balances from live API in the background (non-blocking)
+                            const oauthToken = localStorage.getItem('deriv_oauth_access_token');
+                            if (oauthToken) {
+                                fetchAccounts(oauthToken).then((freshAccounts: any[]) => {
+                                    if (!Array.isArray(freshAccounts) || freshAccounts.length === 0) return;
+                                    const freshList = freshAccounts.map(parseAccountDetails);
+                                    const freshActiveId = localStorage.getItem('active_loginid') || freshList[0]?.loginid;
+                                    const freshAcc = freshList.find((a: any) => a.loginid === freshActiveId) || freshList[0];
+                                    if (freshAcc) {
+                                        localStorage.setItem('client_account_details', JSON.stringify(freshList));
+                                        localStorage.setItem('active_account_type', freshAcc.account_type);
+                                        setAccountList(freshList as any);
+                                        setAuthData({
+                                            loginid: freshAcc.loginid,
+                                            currency: freshAcc.currency,
+                                            balance: freshAcc.balance,
+                                            is_virtual: freshAcc.is_virtual,
+                                            account_list: freshList,
+                                        } as any);
+                                    }
+                                }).catch(() => {
+                                    // Silently ignore — we already seeded from localStorage
+                                });
+                            }
+                        }
+                    }
+                } catch {
+                    // Ignore parse error
                 }
 
                 // Pass isOnline to setLocalStorageToken to handle offline mode properly

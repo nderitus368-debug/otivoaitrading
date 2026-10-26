@@ -66,6 +66,30 @@ class DBot {
                                     should_pretend_empty: true,
                                     event_group: event.group,
                                 });
+
+                                const current_category = category_field.getValue();
+                                if (current_category && current_category !== 'not_available') {
+                                    contracts_for?.getTradeTypes?.(market, submarket, symbol, current_category).then(trade_types => {
+                                        const trade_type_field = this.getField('TRADETYPE_LIST');
+                                        if (trade_type_field) {
+                                            trade_type_field.updateOptions(trade_types, {
+                                                default_value: trade_type,
+                                                should_pretend_empty: true,
+                                                event_group: event.group,
+                                            });
+                                            const current_trade_type = trade_type_field.getValue();
+                                            const fake_tt_event = new window.Blockly.Events.BlockChange(
+                                                this,
+                                                'field',
+                                                'TRADETYPE_LIST',
+                                                null,
+                                                current_trade_type
+                                            );
+                                            fake_tt_event.recordUndo = false;
+                                            window.Blockly.Events.fire(fake_tt_event);
+                                        }
+                                    });
+                                }
                             }
                         });
                         that.symbol = symbol;
@@ -85,11 +109,23 @@ class DBot {
                     } else if (is_trade_type_cat_list_change && event.blockId === this.id) {
                         contracts_for?.getTradeTypes?.(market, submarket, symbol, category).then(trade_types => {
                             const trade_type_field = this.getField('TRADETYPE_LIST');
-                            trade_type_field.updateOptions(trade_types, {
-                                default_value: trade_type,
-                                should_pretend_empty: true,
-                                event_group: event.group,
-                            });
+                            if (trade_type_field) {
+                                trade_type_field.updateOptions(trade_types, {
+                                    default_value: trade_type,
+                                    should_pretend_empty: true,
+                                    event_group: event.group,
+                                });
+                                const current_trade_type = trade_type_field.getValue();
+                                const fake_tt_event = new window.Blockly.Events.BlockChange(
+                                    this,
+                                    'field',
+                                    'TRADETYPE_LIST',
+                                    null,
+                                    current_trade_type
+                                );
+                                fake_tt_event.recordUndo = false;
+                                window.Blockly.Events.fire(fake_tt_event);
+                            }
                         });
                     }
                 }
