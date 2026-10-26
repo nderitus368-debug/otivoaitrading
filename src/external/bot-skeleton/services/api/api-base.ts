@@ -15,7 +15,7 @@ import {
 import ApiHelpers from './api-helpers';
 import { generateDerivApiInstance, V2GetActiveClientId, V2GetActiveToken } from './appId';
 import chart_api from './chart-api';
-import { fetchOtp } from '@/hooks/auth/useOauth2';
+import { fetchOtp, getOAuthAccessToken } from '@/hooks/auth/useOauth2';
 
 type CurrentSubscription = {
     id: string;
@@ -101,9 +101,9 @@ class APIBase {
             this.unsubscribeAllSubscriptions();
         }
 
-        const isOAuth = Boolean(localStorage.getItem('deriv_oauth_access_token'));
-        const oauthToken = localStorage.getItem('deriv_oauth_access_token');
+        const oauthToken = getOAuthAccessToken();
         const activeId = localStorage.getItem('active_loginid') || '';
+        const isOAuth = Boolean(oauthToken);
 
         let customSocketUrl: string | null = null;
         if (isOAuth && oauthToken && activeId) {
@@ -137,7 +137,7 @@ class APIBase {
         if (this.time_interval) clearInterval(this.time_interval);
         this.time_interval = null;
 
-        if (V2GetActiveToken() || localStorage.getItem('deriv_oauth_access_token')) {
+        if (V2GetActiveToken() || getOAuthAccessToken()) {
             setIsAuthorizing(true);
             await this.authorizeAndSubscribe();
         }
@@ -154,7 +154,6 @@ class APIBase {
     }
 
     terminate() {
-        // eslint-disable-next-line no-console
         if (this.api) this.api.disconnect();
     }
 
@@ -177,7 +176,6 @@ class APIBase {
 
         this.reconnect_timeout = setTimeout(() => {
             if (this.api?.connection?.readyState && this.api?.connection?.readyState > 1) {
-                // eslint-disable-next-line no-console
                 console.log('Info: Connection to the server was closed, attempting reconnect.');
                 this.is_reconnecting = true;
                 this.init(true).finally(() => {
@@ -194,7 +192,7 @@ class APIBase {
 
         this.secondary_token = token;
         const api = generateDerivApiInstance() as TApiBaseApi;
-        
+
         try {
             const { error } = await api.authorize(token);
             if (error) {
@@ -217,13 +215,13 @@ class APIBase {
 
         const account_list = JSON.parse(localStorage.getItem('accountsList') || '{}');
         const demo_loginid = Object.keys(account_list).find(loginid => loginid.startsWith('VRTC'));
-        
+
         if (!demo_loginid) return null;
-        
+
         const token = account_list[demo_loginid];
         this.demo_token = token;
         const api = generateDerivApiInstance() as TApiBaseApi;
-        
+
         try {
             const { error } = await api.authorize(token);
             if (error) {
@@ -243,13 +241,14 @@ class APIBase {
         this.token_override = token;
         if (this.api) {
             await this.api.authorize(token || V2GetActiveToken());
-            this.authorizeAndSubscribe(); // Re-subscribe to everything on the new account
+            this.authorizeAndSubscribe();
         }
     }
 
     async authorizeAndSubscribe() {
-        const isOAuth = Boolean(localStorage.getItem('deriv_oauth_access_token'));
-        const token = this.token_override || (isOAuth ? localStorage.getItem('deriv_oauth_access_token') : V2GetActiveToken());
+        const oauthToken = getOAuthAccessToken();
+        const isOAuth = Boolean(oauthToken);
+        const token = this.token_override || (isOAuth ? oauthToken : V2GetActiveToken());
         if (!token || !this.api) return;
         this.token = token;
         this.account_id = V2GetActiveClientId() ?? localStorage.getItem('active_loginid') ?? '';
@@ -259,7 +258,6 @@ class APIBase {
         let savedDetails: any[] = [];
         let activeAcc: any = null;
 
-        // Pre-seed from localStorage if saved account details exist so UI shows immediately
         try {
             const rawSaved = JSON.parse(localStorage.getItem('client_account_details') || '[]');
             if (Array.isArray(rawSaved) && rawSaved.length > 0) {
@@ -278,13 +276,11 @@ class APIBase {
                 }
             }
         } catch {
-            // Ignore parse errors
+            // ignore
         }
 
-        // Check if user authenticated via OAuth2 PKCE
         if (isOAuth) {
             const activeId = localStorage.getItem('active_loginid') || activeAcc?.loginid || '';
-            const oauthToken = localStorage.getItem('deriv_oauth_access_token') || '';
             this.token = oauthToken;
             this.account_id = activeId;
             this.account_info = {
@@ -311,7 +307,6 @@ class APIBase {
         }
 
         try {
-            // Timeout after 6 seconds to avoid hanging indefinitely
             const authPromise = this.api.authorize(this.token);
             const timeoutPromise = new Promise<{ authorize?: TAuthData; error?: any }>((_, reject) =>
                 setTimeout(() => reject(new Error('WebSocket authorization timeout')), 6000)
@@ -331,7 +326,6 @@ class APIBase {
                         }
                     }
                 } else {
-                    // Retain session from OAuth saved accounts
                     setIsAuthorized(true);
                     this.is_authorized = true;
                     if (!this.has_active_symbols) {
@@ -377,7 +371,6 @@ class APIBase {
     async getSelfExclusion() {
         if (!this.api || !this.is_authorized) return;
         await this.api.getSelfExclusion();
-        // TODO: fix self exclusion
     }
 
     async subscribe() {
@@ -464,7 +457,6 @@ class APIBase {
 
     getActiveSymbols = async () => {
         try {
-            // Check localStorage cache first so workspace blocks have immediate symbol data
             if (!this.has_active_symbols) {
                 try {
                     const cached = localStorage.getItem('cached_active_symbols');
@@ -485,7 +477,7 @@ class APIBase {
                         }
                     }
                 } catch {
-                    // Ignore cache read errors
+                    // ignore cache read errors
                 }
             }
 
@@ -506,7 +498,6 @@ class APIBase {
                 }
             }
 
-            // Fallback: If primary socket returned no symbols, query public Deriv WS directly
             if (!response?.active_symbols?.length) {
                 try {
                     response = await this.fetchSymbolsFromPublicSocket();
@@ -517,7 +508,6 @@ class APIBase {
 
             const raw_symbols = response?.active_symbols || [];
             if (raw_symbols.length) {
-                // Normalize symbol fields to ensure standard field availability
                 const active_symbols = raw_symbols.map((s: any) => ({
                     ...s,
                     symbol: s.symbol || s.underlying_symbol || '',
@@ -543,7 +533,7 @@ class APIBase {
                 try {
                     localStorage.setItem('cached_active_symbols', JSON.stringify(active_symbols));
                 } catch {
-                    // Ignore storage quota error
+                    // ignore storage quota error
                 }
 
                 if (ApiHelpers?.instance?.active_symbols) {
@@ -575,7 +565,6 @@ class APIBase {
         this.subscriptions.forEach(s => s.unsubscribe());
         this.subscriptions = [];
 
-        // Resetting timeout resolvers
         const global_timeouts = globalObserver.getState('global_timeouts') ?? [];
 
         global_timeouts.forEach((_: unknown, i: number) => {
